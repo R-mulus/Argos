@@ -1,0 +1,1 @@
+export const NOME_DO_APP = "Argos é o nome do sistema";

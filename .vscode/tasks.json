@@ -1,0 +1,68 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Backend",
+            "type": "shell",
+            "command": "pnpm dev",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "icon": {
+                "id": "server",
+                "color": "terminal.ansiRed"
+            },
+            "presentation": {
+                "panel": "new",
+                "reveal": "always"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*(tsx watch|Starting).*$",
+                    "endsPattern": "^.*🚀 Servidor rodando.*$"
+                }
+            }
+        },
+        {
+            "label": "Frontend",
+            "type": "shell",
+            "command": "pnpm dev",
+            "options": {
+                "cwd": "${workspaceFolder}/frontend"
+            },
+            "icon": {
+                "id": "layout",
+                "color": "terminal.ansiYellow"
+            },
+            "presentation": {
+                "panel": "new",
+                "reveal": "always"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*VITE.*$",
+                    "endsPattern": "^.*ready in.*$"
+                }
+            }
+        },
+        {
+            "label": "Iniciar Servidores",
+            "dependsOn": [
+                "Frontend",
+                "Backend"
+            ],
+            "dependsOrder": "parallel",
+            "problemMatcher": []
+        }
+    ]
+}
