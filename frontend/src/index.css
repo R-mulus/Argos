@@ -263,4 +263,8 @@
     html {
         @apply font-sans;
     }
+
+    .rounded-argos {
+      @apply rounded-bl-[12px] rounded-br-none rounded-tr-[12px] rounded-tl-none;
+    }
 }

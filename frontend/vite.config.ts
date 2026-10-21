@@ -5,7 +5,9 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(),tailwindcss()],
+  // * Necessário para fazer o deploy no Github Pages
+	base: "/Argos/",
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),

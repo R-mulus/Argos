@@ -1,17 +1,19 @@
 # ARGOS — Contexto do Projeto para IAs
 
-> Arquivo de contexto para assistentes de IA (Claude, Copilot, Cursor etc.). Leia antes de gerar código, documentação ou sugestões.
-> Fontes: Termo de Abertura (TAP), Documento de Especificação de Requisitos de Software (ERS) e Projeto de Intervenção.
+> Arquivo de contexto para assistentes de IA (ChatGPT, Claude, Copilot, Cursor etc.). Leia antes de gerar código, documentação ou sugestões.
+
+> É mencionado várias vezes neste arquivo o fato que não será usado RFID, tags UHF, etc. Isso é para caso seja anexado à conversa os documentos referentes ao projeto, os quais ainda se tinha uma ideia diferente sobre o hardware e arquitetura utilizada. Considere informações deste arquivo como fontes principais.
 
 ---
 
 ## 0. Regras de ouro (leia primeiro)
 
 1. **NÃO usamos RFID.** O Projeto de Intervenção menciona antenas/tags/leitores RFID, mas isso está **desatualizado/incorreto**. A solução real usa **ESP32 nano** (microcontroladores) como transmissores (nos animais) e receptores (na propriedade). Nunca sugira leitores RFID, tags UHF, brincos RFID, SISBOV via RFID etc.
-2. Idioma do produto, documentação e comentários: **português do Brasil**.
+2. Idioma do produto, documentação e comentários no código: **português do Brasil**. Idioma do código em si: **inglês**
 3. Os itens **fora de escopo** (seção 3) não devem ser implementados nem sugeridos como entregáveis.
 4. Respeitar as regras de negócio RN01–RN03 e os requisitos RNF01–RNF07 (seções 6 e 7).
 5. Em dúvida entre o que dizem os documentos, **priorize o README do projeto e as instruções do usuário** e sinalize a divergência (ver seção 12).
+6. Este projeto tem como objetivo principal ser um **projeto acadêmico**.
 
 ---
 
@@ -23,7 +25,7 @@
 - Os receptores detectam os transmissores, medem a **intensidade do sinal (RSSI)** e enviam as detecções para a **API Argos**.
 - O sistema determina em qual **zona de interesse** cada animal está, conta automaticamente as cabeças do rebanho, guarda o histórico de movimentação e aplica **Machine Learning** (modelo GRU) para identificar padrões comportamentais.
 
-**Objetivo (TAP):** desenvolver uma aplicação que monitore, identifique e contabilize os animais do rebanho e identifique a posição de cada animal.
+**Objetivo (TAP - Termo de Abertura do Projeto):** desenvolver uma aplicação que monitore, identifique e contabilize os animais do rebanho e identifique a posição de cada animal.
 
 **Problema:** pequenos/médios produtores gastam tempo e mão de obra para monitorar e contar o rebanho manualmente, com sujeição a erro humano e sem histórico estruturado.
 
@@ -53,7 +55,7 @@
 - Histórico de posição/contagem
 - Análise de dados com Machine Learning para decisões de negócio
 
-**Fora do escopo (NÃO implementar)**
+**Fora do escopo (implementar APENAS se for requisitado explicitamente)**
 - Índice de locais com maior movimentação de gado
 - Alerta de animal parado por muito tempo
 - Alerta de animal que ultrapassa a área da fazenda (geofence)
@@ -64,8 +66,8 @@
 
 | Camada | Tecnologia |
 |---|---|
-| Front-end | React + TypeScript + Vite (web responsiva: desktop, tablet, smartphone) |
-| UI | shadcn/ui (**variação Base UI, NUNCA Radix UI**) + Tailwind CSS |
+| Front-end | React TypeScript + Vite (web responsiva: desktop, tablet, smartphone, desenvolvimento mobile-first) |
+| UI | shadcn/ui (**variação Base UI**) + Tailwind CSS |
 | Back-end | Express + TypeScript, arquitetura **MVC** |
 | BD / Auth | **Supabase** (PostgreSQL, autenticação, storage, APIs automáticas) |
 | Hardware / IoT | **ESP32 nano** (transmissor no animal + receptor na fazenda) |
@@ -79,9 +81,9 @@
 
 ```
 Argos/
-├── frontend/   # React + TS + Vite
-├── backend/    # Express + TS (MVC)
-└── shared/     # Código compartilhado (ex.: tipos TypeScript das tabelas do banco)
+├── frontend/   # React Typescript + Vite
+├── backend/    # Express + Typescript (MVC)
+└── shared/     # Código compartilhado (ex.: tipos TypeScript das tabelas do banco. Importar pacotes de shared/ utilizando alias configurado no pnpm: @argos/shared)
 ```
 
 Iniciar servidores: no VS Code, `Ctrl+Shift+P` → "Executar Tarefa"/"Run Task" → **"Iniciar Servidores"** (abre dois terminais: backend e frontend).
@@ -90,18 +92,20 @@ Iniciar servidores: no VS Code, `Ctrl+Shift+P` → "Executar Tarefa"/"Run Task" 
 
 - Express + TypeScript, MVC, usa `@supabase/supabase-js`.
 - Bibliotecas (13/10/2026): `@supabase/supabase-js`, `cors`, `dotenv`, `express`, `@types/cors`, `@types/express`, `nodemon`, `tsx` (roda .ts sem compilar), `typescript`.
-- O Supabase foi pensado para uso direto no frontend (sem API própria); isso pode gerar acoplamento no futuro. Regras de negócio e ingestão de dados dos ESP32 devem ficar no backend.
+  - Durante o desenvolvimento podem surgir novas bibliotecas. Quando isso acontecer será notificado.
+- Embora a API do Supabase tenha sido pensada para uso direto no frontend (sem API própria), **ela será utilizada no backend para criar a API Argos** (ex: queries ao banco de dados). Regras de negócio e ingestão de dados dos ESP32 devem ficar no backend.
 - Instalar dependência: dentro de `backend/`, `pnpm i <biblioteca>`.
 
 ### 4.3 Frontend
 
-- React + TS + Vite; componentes/temas do shadcn/ui; estilização com Tailwind.
+- React Typescript + Vite; componentes/temas do shadcn/ui; estilização com Tailwind.
 - **Autenticação (Auth) é feita pela API do Supabase diretamente no frontend.**
 - Bibliotecas (13/10/2026): `@supabase/supabase-js`, `@tailwindcss/vite`, `@tanstack/react-form` (formulários/validação), `@tanstack/react-query` (requisições, cache, estado assíncrono), `@tanstack/react-table` (tabelas), `axios` (HTTP para a API), `cn` (junção de classes Tailwind), `lucide-react` (ícones), `react`, `react-dom`, `react-router-dom` (rotas), `shadcn` (CLI), `tailwindcss`, `tw-animate-css`, `zustand` (estado global).
-- **Antes de criar componente customizado, verifique se existe no shadcn.** Instale sempre pelo comando da documentação, dentro de `frontend/`, ex.: `pnpm dlx shadcn@latest add accordion`.
+  - Durante o desenvolvimento podem surgir novas bibliotecas. Quando isso acontecer será notificado.
+- **Antes de criar componentes customizados, verifique se o que é necessário existe no shadcn.** Instale sempre pelo comando da documentação mais recente do shadcn **versão Base UI**, dentro de `frontend/`. Ex de instalação de componente.: `pnpm dlx shadcn@latest add accordion`.
   - Se o terminal perguntar se pode **instalar** outros componentes necessários: **Y**.
   - Se perguntar se pode **sobrescrever** componentes existentes: **N** (para não perder alterações feitas por nós).
-- Tipos de tabelas do banco vêm de `shared/`.
+- Tipos de tabelas do banco vêm de `shared/`. Eventualmente serão armazenadas mais coisas na pasta shared. Quando julgar que tenha algo necessário para se guardar nessa pasta, diga.
 
 ---
 
@@ -178,7 +182,7 @@ UC01 Cadastro animais/propriedade · UC02 Cadastro hardware · UC03 Dashboard ·
 
 ## 10. Modelo de dados (sugestão derivada dos requisitos)
 
-Entidades prováveis (confirmar com o schema real do Supabase):
+Entidades prováveis (confirmar com o schema real do Supabase que será enviado):
 `usuarios`, `propriedades`, `animais`, `dispositivos` (tipo: transmissor|receptor, status: ativo|offline|pendente), `zonas` (local do receptor), `deteccoes` (animal_id, receptor_id, rssi, timestamp, origem), `historico_animal`, `alertas`, `eventos_sanitarios`, `pesagens`, `logs_sistema`.
 
 Restrições importantes: `UNIQUE(propriedade_id, identificacao_animal)`; `UNIQUE` de ID de hardware ativo por propriedade; vínculo transmissor↔animal 1:1; RLS (Row Level Security) do Supabase garantindo isolamento por propriedade.
@@ -225,7 +229,8 @@ O projeto é aceito se o sistema: identificar os animais monitorados; contar com
 
 ## 15. Orientações para IAs ao gerar código ou texto
 
-- Use **TypeScript estrito**; front-end com componentes React funcionais com hooks, layout mobile-first, **shadcn/ui variação Base UI (não Radix)**, Tailwind, TanStack Query/Form/Table, Zustand e React Router.
+- Cheque sempre as **documentações mais recentes**.
+- Use **TypeScript estrito**; front-end com componentes React funcionais com hooks, layout mobile-first, **shadcn/ui variação Base UI**, Tailwind, TanStack Query/Form/Table, Zustand e React Router **Declarativo**.
 - Back-end em Express + TS seguindo **MVC**; tipos de tabelas compartilhados em `shared/`; use `pnpm` (não npm/yarn).
 - Não sobrescreva componentes shadcn já customizados.
 - No firmware, assuma **ESP32 nano** (Arduino framework/ESP-IDF/PlatformIO). Implemente buffer local de pacotes, reenvio em bloco, tratamento de reconexão e comunicação segura (HTTPS).
@@ -235,6 +240,10 @@ O projeto é aceito se o sistema: identificar os animais monitorados; contar com
 - Textos de interface em português claro, sem jargão técnico desnecessário.
 - Não implemente os itens fora de escopo (seção 3).
 - Ao encontrar ambiguidade, pergunte ou sinalize em vez de assumir; cite o ID do requisito (RF/RNF/RN/UC) relacionado.
+- Ao receber prints do Figma para desenvolvê-los, faça perguntas para extrair o máximo de informações possíveis para evitar retrabalho.
+- Priorize o uso das bibliotecas instaladas ao invés de código typescript puro.
+- Todo código de componente ou tela deve ser totalmente responsivo para desktop, tablet e celular.
+- Resolva problemas de maneira simples ao invés de criar soluções complicadas desenecessárias. Se o bug foi corrigido e está funcionando como é requerido, está satisfatório.
 
 ---
 
