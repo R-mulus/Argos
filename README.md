@@ -29,7 +29,7 @@ Repositório direcionado para o desenvolvimento da aplicação Argos, para o Pro
 - Estilização com tailwind.css
 - A gestão de Auth é feita por meio da API do Supabase e fica localizada diretamente no frontend para facilitar o uso
 
-#### Bibliotecas do Frontend (*13/10/2026*):
+#### Bibliotecas do Frontend (*03/11/2026*):
 - **@supabase/supabase-js**: biblioteca JS do Supabase para manipular Auth e dados no frontend
 - **@tailwindcss/vite**: plugin para integrar o Tailwind CSS direto no Vite
 - **@tanstack/react-form**: biblioteca para gerenciamento e validação de formulários
@@ -45,6 +45,7 @@ Repositório direcionado para o desenvolvimento da aplicação Argos, para o Pro
 - **tailwindcss**: framework utilitário para estilização CSS
 - **tw-animate-css**: plugin para adicionar animações do Animate.css no Tailwind
 - **zustand**: biblioteca simples e leve para gerenciamento de estado global
+- **exceljs**: biblioteca para lidar com planilhas
 
 # 2. Como Desenvolver:
 
@@ -83,7 +84,15 @@ Caso quando for instalar um componente o terminal perguntar se pode  <span style
 
 ### Desenvolvendo no Backend
 
-XD
+A API Argos será desenvolvida numa arquitetura MVC simples, desta forma:
+
+- A "View" será considerada como o frontend, ou seja, não serão mandados telas ou afins diretamente pela API
+- Será utilizada a biblioteca JS do Supabase para fazer as _queries_ no banco. A questão de Auth será trabalhada diretamente no front, pois caso usemos a biblioteca JS do Supabase diretamente no backend para fazer a autenticação, lidariamos com complicações desnecessárias. Resumindo: Auth -> tratado no frontend; API -> tratada no backend
+- Terão camadas controller, repository, route, model, middleware.
+
+### Desenvolvendo na Shared
+
+Dados compartilhados (como tipos das tabelas do banco do supabase) e outros dados onde se encaixa serem compartilhados entre back e front.
 
 ## Instalando Bibliotecas e Dependências
 
