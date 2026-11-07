@@ -1,0 +1,28 @@
+name: Backend API
+
+on:
+  push:
+    branches:
+      - feat/backend-supabase-foundation
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'supabase/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/backend.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir backend typecheck
+      - run: pnpm --dir backend test

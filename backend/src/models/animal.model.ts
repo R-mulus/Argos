@@ -31,7 +31,7 @@ export function parseAnimal(body: unknown, partial = false): AnimalPayload {
   if (obj.data_nascimento !== undefined) out.data_nascimento = nullableDate(obj.data_nascimento, 'data_nascimento');
   if (obj.status !== undefined) {
     const value = nullableEnum(obj.status, 'status', ['ativo', 'inativo']);
-    if (value === null) throw new ApiError(400, 'status não pode ser nulo.');
+    if (value == null) throw new ApiError(400, 'status não pode ser nulo.');
     out.status = value;
   }
   return out;

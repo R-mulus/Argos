@@ -15,6 +15,10 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _ne
     res.status(error.status).json({ error: { code: error.code, message: error.message } });
     return;
   }
+  if (error instanceof SyntaxError && 'status' in error && error.status === 400) {
+    res.status(400).json({ error: { code: 'INVALID_JSON', message: 'JSON inválido.' } });
+    return;
+  }
   const dbCode = typeof error === 'object' && error !== null && 'code' in error
     ? String(error.code) : undefined;
   if (dbCode === '23505' || dbCode === '23P01') {
