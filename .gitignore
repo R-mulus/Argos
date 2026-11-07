@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Segredos locais. Exemplos sem credenciais podem ser versionados.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Supabase CLI (estado local e arquivos temporários)
+supabase/.temp/
+
 # Editor directories and files
 # .vscode/* // Esta pasta é commitada para que o arquivo de "tasks.json" fique disponível para todos
 !.vscode/extensions.json
