@@ -1,5 +1,9 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+> **Atualização parcial em 10/11/2026:** o conteúdo abaixo é um retrato histórico de 03/11/2026 e não representa o estado corrente de toda a aplicação. Na branch `dev`, o PR #2 já havia integrado a API de propriedades e animais, as sete tabelas do Supabase e os testes básicos. A branch `feat/backend-devices-zones-links` implementa as rotas autenticadas de **dispositivos, zonas e vínculos**, validações e testes (sem ingestão MQTT); integração à `dev` depende de revisão do novo PR. O CI da branch confirmou `pnpm --dir backend typecheck` e `pnpm --dir backend test` com sucesso. Os testes de cadastro de propriedade/animal foram realizados manualmente pelo integrante; os fluxos de dispositivo/zona/vínculo ainda requerem testes manuais com JWT válido antes do merge. Não houve alteração no frontend ou nas tabelas do Supabase nesta etapa.
+
+---
+
 > **Data da verificação:** 03/11/2026  
 > **Repositório:** https://github.com/R-mulus/Argos  
 > **Branch inspecionada:** `lindomar-GPT`  
