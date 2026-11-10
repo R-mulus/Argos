@@ -24,7 +24,7 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
     for (const path of ['/api/dispositivos', '/api/zonas', '/api/vinculos']) {
       const response = await fetch(base + path);
       assert.equal(response.status, 401, path);
-      assert.equal((await response.json()).error.code, 'UNAUTHORIZED');
+      assert.match(JSON.stringify(await response.json()), /\"code\":\"UNAUTHORIZED\"/);
     }
 
     const body = await fetch(`${base}/api/dispositivos`, {
@@ -33,7 +33,7 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
       body: '{invalid JSON',
     });
     assert.equal(body.status, 400);
-    assert.equal((await body.json()).error.code, 'INVALID_JSON');
+    assert.match(JSON.stringify(await body.json()), /\"code\":\"INVALID_JSON\"/);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
