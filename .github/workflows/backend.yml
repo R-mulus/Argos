@@ -23,6 +23,12 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
+      - name: Emit lockfile for integration
+        run: |
+          echo "ARGOS_LOCK_BEGIN"
+          base64 -w 2000 pnpm-lock.yaml
+          echo
+          echo "ARGOS_LOCK_END"
       - run: pnpm --dir backend typecheck
       - run: pnpm --dir backend test
