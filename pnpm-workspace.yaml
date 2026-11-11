@@ -4,3 +4,8 @@ packages:
   - 'shared'
 allowBuilds:
   esbuild: true
+
+nodeLinker: hoisted
+hoistWorkspacePackages: false
+injectWorkspacePackages: true
+dedupeInjectedDeps: false
