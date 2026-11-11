@@ -3,7 +3,7 @@ name: Backend API
 on:
   push:
     branches:
-      - feat/backend-supabase-foundation
+      - 'feat/backend-*'
   pull_request:
     paths:
       - 'backend/**'

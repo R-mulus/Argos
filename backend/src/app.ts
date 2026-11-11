@@ -5,6 +5,9 @@ import { ApiError, errorHandler, notFound } from './lib/http.js';
 import { requireAuth } from './middlewares/auth.js';
 import { propriedadeRoutes } from './routes/propriedade.routes.js';
 import { animalRoutes } from './routes/animal.routes.js';
+import { dispositivoRoutes } from './routes/dispositivo.routes.js';
+import { zonaRoutes } from './routes/zona.routes.js';
+import { vinculoRoutes } from './routes/vinculo.routes.js';
 
 export function createApp(config: Config) {
   const app = express();
@@ -19,6 +22,9 @@ export function createApp(config: Config) {
   app.use('/api', requireAuth(config));
   app.use('/api/propriedades', propriedadeRoutes);
   app.use('/api/animais', animalRoutes);
+  app.use('/api/dispositivos', dispositivoRoutes);
+  app.use('/api/zonas', zonaRoutes);
+  app.use('/api/vinculos', vinculoRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

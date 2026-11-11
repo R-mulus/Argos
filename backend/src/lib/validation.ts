@@ -57,6 +57,12 @@ export function uuidParam(value: unknown, name = 'id'): string {
   return value;
 }
 
+export function nullableUuid(value: unknown, name: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return uuidParam(value, name);
+}
+
 export function pagination(query: Record<string, unknown>): { limit: number; offset: number } {
   const parse = (value: unknown, fallback: number, name: string) => {
     if (value === undefined) return fallback;
