@@ -32,7 +32,8 @@ client.handleMessage = (packet, done) => {
     return;
   }
   void (async () => {
-    const evento = parseDeteccaoMqtt(packet.topic, packet.payload);
+    const evento = parseDeteccaoMqtt(packet.topic,
+      typeof packet.payload === 'string' ? Buffer.from(packet.payload, 'utf8') : packet.payload);
     const resultado = await processarDeteccao(repositorio, evento);
     if (resultado === 'duplicada') {
       console.info('Detecção MQTT já processada:', evento.eventoId);
