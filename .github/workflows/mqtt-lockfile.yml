@@ -1,0 +1,25 @@
+name: Temporary MQTT Lockfile Generation
+
+on:
+  push:
+    branches: [feat/backend-mqtt-ingestion]
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --lockfile-only --no-frozen-lockfile
+      - run: |
+          echo "::group::BEGIN_LOCKFILE_BASE64"
+          base64 -w0 pnpm-lock.yaml
+          echo
+          echo "::endgroup::"
+          echo "END_LOCKFILE_BASE64"
