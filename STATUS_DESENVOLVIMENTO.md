@@ -1,5 +1,9 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+> **Atualização 11/11/2026:** os PRs #2 e #3 estão integrados à `dev` e os cadastros de propriedades, animais, dispositivos, zonas e vínculos foram validados manualmente pelo integrante. A branch `feat/backend-mqtt-ingestion` contém a implementação inicial (em revisão) do **worker MQTT v1**, contrato de detecção, repositório de persistência e testes sem broker. O worker ainda exige credenciais reais de broker e chave secreta de servidor, além de teste ponta a ponta. O firmware não foi modificado; nenhuma regra de dashboard/contagem por RSSI foi implementada. Nenhuma alteração de schema ou registros do Supabase nesta etapa.
+
+---
+
 > **Atualização parcial em 10/11/2026:** o conteúdo abaixo é um retrato histórico de 03/11/2026 e não representa o estado corrente de toda a aplicação. Na branch `dev`, o PR #2 já havia integrado a API de propriedades e animais, as sete tabelas do Supabase e os testes básicos. A branch `feat/backend-devices-zones-links` implementa as rotas autenticadas de **dispositivos, zonas e vínculos**, validações e testes (sem ingestão MQTT); integração à `dev` depende de revisão do novo PR. O CI da branch confirmou `pnpm --dir backend typecheck` e `pnpm --dir backend test` com sucesso. Os testes de cadastro de propriedade/animal foram realizados manualmente pelo integrante; os fluxos de dispositivo/zona/vínculo ainda requerem testes manuais com JWT válido antes do merge. Não houve alteração no frontend ou nas tabelas do Supabase nesta etapa.
 
 ---
