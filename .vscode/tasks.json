@@ -1,68 +1,126 @@
+
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Backend",
-            "type": "shell",
-            "command": "pnpm dev",
-            "options": {
-                "cwd": "${workspaceFolder}/backend"
-            },
-            "icon": {
-                "id": "server",
-                "color": "terminal.ansiRed"
-            },
-            "presentation": {
-                "panel": "new",
-                "reveal": "always"
-            },
-            "isBackground": true,
-            "problemMatcher": {
-                "pattern": {
-                    "regexp": "^$"
-                },
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": "^.*(tsx watch|Starting).*$",
-                    "endsPattern": "^.*🚀 Servidor rodando.*$"
-                }
-            }
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "icon": {
+        "id": "server",
+        "color": "terminal.ansiRed"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
         },
-        {
-            "label": "Frontend",
-            "type": "shell",
-            "command": "pnpm dev",
-            "options": {
-                "cwd": "${workspaceFolder}/frontend"
-            },
-            "icon": {
-                "id": "layout",
-                "color": "terminal.ansiYellow"
-            },
-            "presentation": {
-                "panel": "new",
-                "reveal": "always"
-            },
-            "isBackground": true,
-            "problemMatcher": {
-                "pattern": {
-                    "regexp": "^$"
-                },
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": "^.*VITE.*$",
-                    "endsPattern": "^.*ready in.*$"
-                }
-            }
-        },
-        {
-            "label": "Iniciar Servidores",
-            "dependsOn": [
-                "Frontend",
-                "Backend"
-            ],
-            "dependsOrder": "parallel",
-            "problemMatcher": []
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*(tsx watch|Starting).*$",
+          "endsPattern": "^.*🚀 Servidor rodando.*$"
         }
-    ]
+      }
+    },
+    {
+      "label": "Frontend",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "icon": {
+        "id": "layout",
+        "color": "terminal.ansiYellow"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*$",
+          "endsPattern": "^.*ready in.*$"
+        }
+      }
+    },
+    {
+      "label": "Worker MQTT",
+      "type": "shell",
+      "command": "pnpm mqtt:worker",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "icon": {
+        "id": "broadcast",
+        "color": "terminal.ansiCyan"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*(Worker MQTT desconectado|Erro na conexão MQTT).*$",
+          "endsPattern": "^.*Conectado ao broker MQTT; solicitando assinatura de detecções\\..*$"
+        }
+      }
+    },
+    {
+      "label": "Docker + EMQX",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "docker info --format '{{.ServerVersion}}' 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { docker desktop start; if ($LASTEXITCODE -ne 0) { throw 'Falha ao iniciar Docker Desktop.' } }; $ok = $false; for ($i = 0; $i -lt 45; $i++) { docker info --format '{{.ServerVersion}}' 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $ok = $true; break }; Start-Sleep -Seconds 2 }; if (-not $ok) { throw 'Docker Engine indisponivel.' }; $running = docker inspect -f '{{.State.Running}}' argos-emqx 2>$null; if ($LASTEXITCODE -ne 0) { throw 'Container argos-emqx nao encontrado.' }; if ($running.Trim() -ne 'true') { docker start argos-emqx | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'Erro ao iniciar EMQX.' } }; $ok = $false; for ($i = 0; $i -lt 30; $i++) { docker exec argos-emqx emqx ctl status 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $ok = $true; break }; Start-Sleep -Seconds 2 }; if (-not $ok) { throw 'EMQX nao ficou pronto.' }; Write-Host 'Docker e EMQX prontos.'"
+      ],
+      "icon": {
+        "id": "package",
+        "color": "terminal.ansiBlue"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Iniciar Servidores (Front + Back + Worker)",
+      "dependsOn": [
+        "Frontend",
+        "Backend",
+        "Worker MQTT"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Iniciar Tudo",
+      "dependsOn": [
+        "Docker + EMQX",
+        "Iniciar Servidores (Front + Back + Worker)"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
 }
