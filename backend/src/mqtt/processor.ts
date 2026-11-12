@@ -10,6 +10,7 @@ export type DetecaoPersistida = {
   rssi_dbm: number;
   bateria_percentual: number | null;
   detectado_em: string | null;
+  recebido_no_gateway_em: string;
   zona_id: string | null;
   vinculo_id: string | null;
 };
@@ -65,6 +66,7 @@ export async function processarDeteccao(
     rssi_dbm: evento.rssiDbm,
     bateria_percentual: evento.bateriaPercentual,
     detectado_em: evento.detectadoEm,
+    recebido_no_gateway_em: evento.recebidoEm,
     zona_id: zona?.id ?? null,
     vinculo_id: vinculoId,
   });

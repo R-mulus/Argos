@@ -8,6 +8,7 @@ import { animalRoutes } from './routes/animal.routes.js';
 import { dispositivoRoutes } from './routes/dispositivo.routes.js';
 import { zonaRoutes } from './routes/zona.routes.js';
 import { vinculoRoutes } from './routes/vinculo.routes.js';
+import { listarDeteccoes } from './controllers/deteccao.controller.js';
 
 export function createApp(config: Config) {
   const app = express();
@@ -25,6 +26,7 @@ export function createApp(config: Config) {
   app.use('/api/dispositivos', dispositivoRoutes);
   app.use('/api/zonas', zonaRoutes);
   app.use('/api/vinculos', vinculoRoutes);
+  app.get('/api/deteccoes', listarDeteccoes);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -233,3 +233,24 @@ O arquivo padrão é `backend/data/deteccoes.sqlite`. O worker retém as leitura
 O PUBACK do worker ao EMQX vem após a gravação local. Uma indisponibilidade do Supabase mantém a pendência para nova tentativa. Quando o cadastro é inválido, a leitura fica registrada como rejeitada e o motivo aparece no terminal. O status dos dispositivos é conferido na sincronização. Para a apresentação, mantenha os cadastros estáveis e os relógios do notebook e dos dispositivos com hora confiável ajustados. A zona fica vazia se a leitura é antiga ou se a zona ativa foi alterada após o instante de referência, inclusive por uma edição de nome. O vínculo considera o intervalo histórico no instante da detecção ou, quando ausente, na primeira recepção local. No PostgreSQL, `recebido_em` continua indicando a chegada à nuvem.
 
 Para repetir o teste de integração automatizado, use um broker **isolado** em loopback, sem autenticação e sem outros workers Argos. Defina `ARGOS_TEST_MQTT_URL` para sua URL local com porta e execute `pnpm --dir backend exec tsx --test tests/integracao/mqtt-offline.ts`. O teste inicia o worker real com SQLite temporário e uma API HTTP simulada, envia mensagens QoS 1 e interrompe o processo com pendências.
+
+## Histórico de detecções
+
+`GET /api/deteccoes` exige o token Bearer do usuário e retorna somente leituras da sua propriedade. Exemplo de consulta:
+
+```http
+GET /api/deteccoes?inicio=2026-11-12T00:00:00Z&fim=2026-11-13T00:00:00Z&limit=20&offset=0
+Authorization: Bearer <access_token>
+```
+
+A resposta contém `data`, `count` (total filtrado), `limit` e `offset`. Cada item segue o tipo `DeteccaoHistorico` de `@argos/shared`. Os filtros opcionais `animal_id` e `zona_id` recebem UUIDs. O período inclui `inicio` e exclui `fim`, em ISO 8601 com fuso e até três casas de fração de segundo. Codifique `+` como `%2B` em offsets positivos. O limite padrão é 20 e o máximo é 100.
+
+- `detectado_em` é o horário informado pelo ESP32, quando disponível.
+- `recebido_no_gateway_em` é a primeira recepção pelo worker preservada na fila SQLite.
+- `recebido_em` é a chegada ao PostgreSQL.
+- `instante_referencia` usa a detecção ou, na ausência dela, a recepção pelo gateway. Leituras legadas sem ambos aparecem no fim da listagem geral e ficam fora dos filtros de período.
+- O histórico vem em ordem decrescente de instante de referência, com desempate por recebimento na nuvem e ID. Animal e zona podem ser nulos. O animal é identificado pelo vínculo salvo na detecção. Os nomes exibidos vêm dos cadastros atuais.
+
+Aplique a migração `20261112165455_argos_historico_deteccoes.sql` em instalações novas antes de atualizar o worker. O projeto Supabase da apresentação já recebeu a migração.
+
+No ensaio em 12/11/2026, o relógio do notebook estava cerca de dois segundos atrás do banco. Para a apresentação, prepare zona e vínculo antes da primeira leitura e sincronize os relógios. Uma leitura com horário anterior ao cadastro pode vir sem associação.
