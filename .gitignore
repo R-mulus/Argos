@@ -33,3 +33,5 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+# Fila de detecções do gateway (inclui WAL e arquivos auxiliares)
+/backend/data/

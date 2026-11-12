@@ -12,11 +12,11 @@ export class SupabaseRepositorioDeteccoes implements RepositorioDeteccoes {
     return data;
   }
 
-  async buscarZonaAtiva(propriedadeId: string, receptorId: string): Promise<{ id: string } | null> {
+  async buscarZonaAtiva(propriedadeId: string, receptorId: string, instante: string): Promise<{ id: string } | null> {
     const { data, error } = await this.db.from('zonas')
       .select('id')
       .eq('propriedade_id', propriedadeId).eq('receptor_id', receptorId)
-      .eq('ativa', true).maybeSingle();
+      .eq('ativa', true).lte('updated_at', instante).maybeSingle();
     if (error) throw error;
     return data;
   }

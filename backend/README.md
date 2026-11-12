@@ -57,7 +57,7 @@ O corpo JSON é validado e campos como `propriedade_id` e `usuario_id` não são
 
 ## Observações
 
-- Cadastros de propriedade, animal, dispositivo, zona e vínculos estão implementados. Detecções, MQTT, dashboard, alertas e exportação permanecem para próximas entregas.
+- Cadastros e ingestão MQTT de detecções estão implementados. A seção de ingestão abaixo descreve o worker e os testes.
 - Não incluir chave `service_role` ou `sb_secret_...` no frontend ou nesse arquivo de exemplo.
 - Integração ponta a ponta depende de um usuário Supabase Auth real e da chave publishable configurada; ainda não há credenciais de testes neste repositório.
 - Banco remoto: `pqmdqtcjemgnjtugtuqy`; migrações em `supabase/migrations`.
@@ -139,7 +139,7 @@ Esses testes de ponta a ponta são manuais via Postman: as verificações autom�
 
 ## Ingestão MQTT (terceira etapa)
 
-O worker é **um processo Node.js separado** da API Express. Ele assina mensagens de detecção, valida IDs e intervalos, resolve zona e vínculo no instante da leitura e grava em `public.deteccoes`. O projeto Supabase já possui essa tabela, índices e `UNIQUE(receptor_id, evento_id)`: **não há migração nova nesta etapa**. A API HTTP não recebe `service_role` e o worker não é exposto no navegador.
+O worker é **um processo Node.js separado** da API Express. Ele valida o contrato MQTT e guarda a leitura em SQLite. Um sincronizador no mesmo processo valida o cadastro, resolve zona e vínculo e grava em `public.deteccoes`. O projeto Supabase já possui essa tabela, índices e `UNIQUE(receptor_id, evento_id)`: **não há migração nova nesta etapa**. A API HTTP não recebe `service_role` e o worker não é exposto no navegador.
 
 ### Contrato MQTT v1
 
@@ -160,7 +160,7 @@ argos/v1/propriedades/<UUID_PROPRIEDADE>/receptores/<UUID_RECEPTOR>/deteccoes
 }
 ```
 
-`transmissor_id` e `receptor_id` são os UUIDs do cadastro Argos; **não são MACs**. `bateria_percentual` é opcional (0–100); `detectado_em` é opcional, aceita ISO 8601 **com fuso horário** e fica `NULL` no banco quando o relógio do ESP32 não é confiável. `recebido_em` é registrado pelo PostgreSQL. O instante de recebimento é usado para o vínculo quando `detectado_em` está ausente, sem fingir que o dispositivo mediu esse horário.
+`transmissor_id` e `receptor_id` são os UUIDs do cadastro Argos; **não são MACs**. `bateria_percentual` é opcional (0–100); `detectado_em` é opcional, aceita ISO 8601 **com fuso horário** e fica `NULL` no banco quando o relógio do ESP32 não é confiável. `recebido_em` é registrado pelo PostgreSQL. O instante da primeira recepção no worker (preservado no SQLite) é usado para o vínculo quando `detectado_em` está ausente, sem fingir que o dispositivo mediu esse horário.
 
 `evento_id` deve ser estável para **o mesmo evento** durante retransmissões: use identificador de boot persistente/único combinado com contador ou UUID por detecção; não gere um ID novo a cada tentativa de envio. É único por receptor, inclusive após reinícios. O broker deve fornecer **QoS 1**, e o consumidor usa sessão persistente com `MQTT_CLIENT_ID` estável. Mensagens retidas não são aceitas. Publicações duplicadas são ignoradas pelo banco.
 
@@ -217,4 +217,19 @@ Casos negativos a verificar: RSSI fora de -127…0; identificadores inexistentes
 - Esta etapa persiste **detecções brutas** e associa zona/vínculo; não calcula ainda a **zona corrente consolidada de cada animal** entre múltiplos receptores (deve aplicar deduplicação de animal e critério temporal/RSSI antes de contar o rebanho).
 - Para leituras antigas (mais de 5 minutos), o worker preserva o vínculo histórico, quando compatível, mas não atribui a zona atual do receptor retroativamente: `zona_id = NULL` para evitar falsificar histórico quando houve reassociação de receptor. Um protocolo futuro poderá registrar histórico de zonas.
 - Não há simulação de distância física por RSSI, nem pipeline GRU/alertas implementados.
-- Erros permanentes de payload são descartados com log; erros de banco são tratados para retransmissão QoS1. O provisionamento de broker/credenciais, testes end-to-end MQTT e testes com firmware real são **pendências**, não ações já realizadas.
+- Erros permanentes de payload são descartados com log; falhas na escrita local dependem da retransmissão QoS 1 e falhas de acesso ao Supabase mantêm os eventos pendentes no SQLite. O provisionamento de broker/credenciais, testes end-to-end MQTT e testes com firmware real são **pendências**, não ações já realizadas.
+
+## Demonstração de coleta offline
+
+Use Node 22.13 ou posterior com `node:sqlite` disponível. Na raiz, execute `pnpm --dir backend mqtt:worker` com o arquivo de ambiente do backend já configurado. O notebook precisa alcançar o EMQX pela rede local e ter permissão de escrita em `backend/data/`. A coleta inicia mesmo se a internet estiver desligada. Para testar o modo offline, mantenha o Wi-Fi local e o broker ligados e desconecte apenas a saída para a internet.
+
+1. Com internet, cadastre receptor e transmissor ativos, zona e vínculo. Publique uma leitura QoS 1 pelo ESP32 ou MQTTX e confira o contador de sincronizadas.
+2. Sem internet, publique três leituras com IDs inéditos. Repita uma com o mesmo ID e conteúdo. O contador de pendentes deve subir em três.
+3. Encerre e reinicie o worker. O terminal exibe as mesmas três pendências na inicialização.
+4. Restabeleça a internet. Ao fim do envio, confira zero pendências, mais três sincronizadas e os três IDs na tabela `public.deteccoes`.
+
+O arquivo padrão é `backend/data/deteccoes.sqlite`. O worker retém as leituras confirmadas e rejeitadas para inspeção e deduplicação durante a demonstração. Os contadores são acumulados por arquivo. Para usar outro arquivo, configure `MQTT_SQLITE_PATH` com um caminho absoluto em disco local. Mantenha o mesmo arquivo ao reiniciar. Cada ciclo envia até 50 pendências e o próximo começa três segundos após o término do anterior.
+
+O PUBACK do worker ao EMQX vem após a gravação local. Uma indisponibilidade do Supabase mantém a pendência para nova tentativa. Quando o cadastro é inválido, a leitura fica registrada como rejeitada e o motivo aparece no terminal. O status dos dispositivos é conferido na sincronização. Para a apresentação, mantenha os cadastros estáveis e os relógios do notebook e dos dispositivos com hora confiável ajustados. A zona fica vazia se a leitura é antiga ou se a zona ativa foi alterada após o instante de referência, inclusive por uma edição de nome. O vínculo considera o intervalo histórico no instante da detecção ou, quando ausente, na primeira recepção local. No PostgreSQL, `recebido_em` continua indicando a chegada à nuvem.
+
+Para repetir o teste de integração automatizado, use um broker **isolado** em loopback, sem autenticação e sem outros workers Argos. Defina `ARGOS_TEST_MQTT_URL` para sua URL local com porta e execute `pnpm --dir backend exec tsx --test tests/integracao/mqtt-offline.ts`. O teste inicia o worker real com SQLite temporário e uma API HTTP simulada, envia mensagens QoS 1 e interrompe o processo com pendências.

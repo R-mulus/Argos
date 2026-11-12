@@ -1,5 +1,7 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+> **11/11/2026 — backend offline (alteração local na branch lindomar-GPT).** O PR #4 já está integrado à base. O worker MQTT v1 agora persiste as leituras em SQLite antes do PUBACK ao broker e sincroniza as pendências automaticamente. A demonstração usa EMQX alcançável pela rede local. O frontend e o esquema remoto permanecem na versão anterior. Verificação local com Node 24: `pnpm --dir backend typecheck`, `pnpm --dir backend test` (19 testes) e ensaio do worker com EMQX 6.3.2, interrupção do processo, SQLite em arquivo e API HTTP simulada. A etapa offline ainda precisa de ensaio com o Supabase real da apresentação. O roteiro está em `backend/README.md`.
+
 > **Atualização 11/11/2026:** os PRs #2 e #3 estão integrados à `dev` e os cadastros de propriedades, animais, dispositivos, zonas e vínculos foram validados manualmente pelo integrante. A branch `feat/backend-mqtt-ingestion` contém a implementação inicial (em revisão) do **worker MQTT v1**, contrato de detecção, repositório de persistência e testes sem broker. O worker ainda exige credenciais reais de broker e chave secreta de servidor, além de teste ponta a ponta. O firmware não foi modificado; nenhuma regra de dashboard/contagem por RSSI foi implementada. Nenhuma alteração de schema ou registros do Supabase nesta etapa.
 
 ---
