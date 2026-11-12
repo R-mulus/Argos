@@ -1,3 +1,6 @@
+import { fileURLToPath } from 'node:url';
+import { FilaDeteccoes } from './fila.js';
+import { sincronizarLote } from './sincronizacao.js';
 import { createClient } from '@supabase/supabase-js';
 import { connect } from 'mqtt';
 import { loadMqttWorkerConfig } from './config.js';
@@ -11,6 +14,22 @@ const supabase = createClient(config.supabaseUrl, config.supabaseSecretKey, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
 const repositorio = new SupabaseRepositorioDeteccoes(supabase);
+
+const fila = new FilaDeteccoes(process.env.MQTT_SQLITE_PATH ||
+  fileURLToPath(new URL('../../data/deteccoes.sqlite', import.meta.url)));
+console.info(fila.resumo());
+let encerrando = false;
+let timer: NodeJS.Timeout;
+async function sincronizar() {
+  try {
+    const total = await sincronizarLote(fila, evento => processarDeteccao(repositorio, evento));
+    if (total) console.info(fila.resumo());
+  } catch {
+    console.warn('Sincronização interrompida. Confira a rede e o acesso ao Supabase.', fila.resumo());
+  }
+  if (!encerrando) timer = setTimeout(sincronizar, 3000);
+}
+void sincronizar();
 
 const client = connect(config.mqttUrl, {
   clientId: config.mqttClientId,
@@ -31,29 +50,23 @@ client.handleMessage = (packet, done) => {
     done();
     return;
   }
-  void (async () => {
+  try {
     const evento = parseDeteccaoMqtt(packet.topic,
       typeof packet.payload === 'string' ? Buffer.from(packet.payload, 'utf8') : packet.payload);
-    const resultado = await processarDeteccao(repositorio, evento);
-    if (resultado === 'duplicada') {
-      console.info('Detecção MQTT já processada:', evento.eventoId);
+    const nova = fila.guardar(evento);
+    console.info(nova ? 'Detecção recebida.' : 'Evento repetido.', fila.resumo());
+  } catch (erro) {
+    if (erro instanceof MensagemInvalida) {
+      console.warn('Detecção rejeitada:', erro.message);
+      done();
+      return;
     }
-  })().then(
-    () => done(),
-    (error: unknown) => {
-      if (error instanceof MensagemInvalida) {
-        // Pacote inválido nunca vai ser corrigido por uma retransmissão.
-        console.warn('Detecção rejeitada:', error.message);
-        done();
-        return;
-      }
-      // Falhas transitórias de Postgres/rede NÃO devem receber PUBACK.
-      // Força reconexão para o broker retransmitir a mensagem QoS 1.
-      console.error('Falha na persistência MQTT. Reconectando para replay:', error);
-      done(error instanceof Error ? error : new Error('Falha de persistência MQTT'));
-      client.reconnect();
-    },
-  );
+    console.error('Falha na fila SQLite. A entrega será repetida pelo broker.');
+    done(new Error('Falha na fila SQLite'));
+    client.stream.destroy();
+    return;
+  }
+  done();
 };
 
 client.on('connect', () => {
@@ -62,7 +75,9 @@ client.on('connect', () => {
     if (error || !granted?.some((g) => g.topic === TOPICO_DETECCOES && g.qos === 1)) {
       console.error('Broker não concedeu assinatura QoS 1.', error ?? granted);
       client.reconnect();
+      return;
     }
+    console.info('Assinatura QoS 1 ativa.');
   });
 });
 client.on('error', (error) => console.error('Erro na conexão MQTT:', error.message));
@@ -70,6 +85,12 @@ client.on('offline', () => console.warn('Worker MQTT desconectado; tentando reco
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    void client.endAsync(false).finally(() => process.exit(0));
+    if (encerrando) return;
+    encerrando = true;
+    clearTimeout(timer);
+    void client.endAsync(false).finally(() => {
+      fila.fechar();
+      process.exit(0);
+    });
   });
 }

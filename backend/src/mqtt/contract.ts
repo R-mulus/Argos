@@ -81,9 +81,9 @@ export function parseDeteccaoMqtt(
     detectadoEm = new Date(millis).toISOString();
   }
   return {
-    propriedadeId: parts[3],
-    receptorId: parts[5],
-    transmissorId: body.transmissor_id,
+    propriedadeId: parts[3].toLowerCase(),
+    receptorId: parts[5].toLowerCase(),
+    transmissorId: body.transmissor_id.toLowerCase(),
     eventoId: body.evento_id,
     rssiDbm: body.rssi_dbm,
     bateriaPercentual: typeof bateria === 'number' ? bateria : null,

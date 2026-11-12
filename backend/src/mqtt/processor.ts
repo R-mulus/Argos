@@ -10,6 +10,7 @@ export type DetecaoPersistida = {
   rssi_dbm: number;
   bateria_percentual: number | null;
   detectado_em: string | null;
+  recebido_no_gateway_em: string;
   zona_id: string | null;
   vinculo_id: string | null;
 };
@@ -17,7 +18,7 @@ export type DetecaoPersistida = {
 // A persistência fica separada da lógica de negócios para testes sem credenciais/broker.
 export interface RepositorioDeteccoes {
   buscarDispositivo(propriedadeId: string, id: string): Promise<DispositivoIoT | null>;
-  buscarZonaAtiva(propriedadeId: string, receptorId: string): Promise<{ id: string } | null>;
+  buscarZonaAtiva(propriedadeId: string, receptorId: string, instante: string): Promise<{ id: string } | null>;
   buscarVinculoNoInstante(
     propriedadeId: string, transmissorId: string, data: string,
   ): Promise<VinculoIoT | null>;
@@ -49,7 +50,7 @@ export async function processarDeteccao(
   const recente = recenciaMs >= -60_000 && recenciaMs <= 5 * 60_000;
   const [zona, vinculo] = await Promise.all([
     recente
-      ? repositorio.buscarZonaAtiva(evento.propriedadeId, evento.receptorId)
+      ? repositorio.buscarZonaAtiva(evento.propriedadeId, evento.receptorId, instante)
       : Promise.resolve(null),
     repositorio.buscarVinculoNoInstante(evento.propriedadeId, evento.transmissorId, instante),
   ]);
@@ -65,9 +66,12 @@ export async function processarDeteccao(
     rssi_dbm: evento.rssiDbm,
     bateria_percentual: evento.bateriaPercentual,
     detectado_em: evento.detectadoEm,
+    recebido_no_gateway_em: evento.recebidoEm,
     zona_id: zona?.id ?? null,
     vinculo_id: vinculoId,
   });
+
+  if (!inedita) return 'duplicada';
 
   // Status operacional é auxiliar: falha nesta atualização não invalida a
   // detecção já gravada, e jamais provoca reenfileiramento infinito.
@@ -84,5 +88,5 @@ export async function processarDeteccao(
   } catch (error) {
     avisar('Não foi possível atualizar ultima_comunicacao_em.', error);
   }
-  return inedita ? 'gravada' : 'duplicada';
+  return 'gravada';
 }

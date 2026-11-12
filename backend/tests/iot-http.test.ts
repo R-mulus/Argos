@@ -21,7 +21,7 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { status: 'ok' });
 
-    for (const path of ['/api/dispositivos', '/api/zonas', '/api/vinculos']) {
+    for (const path of ['/api/dispositivos', '/api/zonas', '/api/vinculos', '/api/deteccoes']) {
       const response = await fetch(base + path);
       assert.equal(response.status, 401, path);
       assert.match(JSON.stringify(await response.json()), /\"code\":\"UNAUTHORIZED\"/);

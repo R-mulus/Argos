@@ -48,6 +48,7 @@ test('insere evento e preenche zona e vínculo corretos', async () => {
     propriedade_id: evento.propriedadeId, receptor_id: evento.receptorId,
     transmissor_id: evento.transmissorId, evento_id: evento.eventoId,
     rssi_dbm: -66, bateria_percentual: 83, detectado_em: evento.detectadoEm,
+    recebido_no_gateway_em: evento.recebidoEm,
     zona_id: 'zona-1', vinculo_id: 'vinculo-1',
   });
   assert.deepEqual(repo.comunicações, [evento.receptorId, evento.transmissorId]);
