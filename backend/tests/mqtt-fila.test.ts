@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { MensagemInvalida, parseDeteccaoMqtt } from '../src/mqtt/contract.js';
-import { FilaDeteccoes } from '../src/mqtt/fila.js';
+import { FilaDeteccoes, type LoteSincronizado } from '../src/mqtt/fila.js';
 import { sincronizarLote } from '../src/mqtt/sincronizacao.js';
 
 const propriedade = '652fca4e-b911-4638-8ac4-20db0c24c027';
@@ -14,6 +14,47 @@ const topico = `argos/v1/propriedades/${propriedade}/receptores/${receptor}/dete
 const payload = Buffer.from(JSON.stringify({
   versao: 1, evento_id: 'boot:1', transmissor_id: transmissor, rssi_dbm: -60,
 }));
+
+test('aviso de retomada sobrevive a reinícios e confirmação perdida, com mais de um lote', async () => {
+  const pasta = mkdtempSync(join(tmpdir(), 'argos-retomada-'));
+  const arquivo = join(pasta, 'fila.sqlite');
+  let fila = new FilaDeteccoes(arquivo);
+  const origem = parseDeteccaoMqtt(topico, payload);
+  const avisos = new Map<string, LoteSincronizado>();
+  try {
+    for (let i = 0; i < 55; i++) fila.guardar({ ...origem, eventoId: String(i) });
+    await assert.rejects(sincronizarLote(fila, async () => { throw Error('indisponível'); }));
+    fila.fechar();
+    fila = new FilaDeteccoes(arquivo);
+    fila.guardar({ ...origem, eventoId: 'durante-a-queda' });
+    fila.guardar({ ...origem, propriedadeId: 'outra', receptorId: 'outro', eventoId: '1' });
+    const enviar = async (evento: typeof origem) => {
+      if (evento.eventoId === '54') throw new MensagemInvalida('Cadastro inválido');
+    };
+    await sincronizarLote(fila, enviar, undefined, async lote => { avisos.set(lote.id, lote); });
+    assert.equal(avisos.size, 0);
+    await assert.rejects(sincronizarLote(fila, enviar, undefined, async lote => {
+      avisos.set(lote.id, lote);
+      throw Error('resposta perdida');
+    }));
+    fila.fechar();
+    fila = new FilaDeteccoes(arquivo);
+    await sincronizarLote(fila, enviar, undefined, async lote => { avisos.set(lote.id, lote); });
+    assert.equal(avisos.size, 1);
+    const aviso = [...avisos.values()][0];
+    assert.equal(aviso.propriedade, origem.propriedadeId);
+    assert.equal(aviso.sincronizadas, 55);
+    assert.equal(aviso.rejeitadas, 1);
+    assert.deepEqual(fila.avisosPendentes(), []);
+    fila.guardar({ ...origem, eventoId: 'nova-interrupcao' });
+    await assert.rejects(sincronizarLote(fila, async () => { throw Error('nova falha'); }));
+    await sincronizarLote(fila, enviar, undefined, async lote => { avisos.set(lote.id, lote); });
+    assert.equal(avisos.size, 2);
+  } finally {
+    fila.fechar();
+    rmSync(pasta, { recursive: true });
+  }
+});
 
 test('fila sobrevive à queda, reinício e perda da confirmação remota', async () => {
   const pasta = mkdtempSync(join(tmpdir(), 'argos-fila-'));
@@ -58,6 +99,7 @@ test('cadastro inválido não impede o envio dos próximos eventos', async () =>
       if (item.eventoId === evento.eventoId) throw new MensagemInvalida('Receptor inativo.');
     });
     assert.equal(fila.resumo(), 'Pendentes: 0, sincronizadas: 1, rejeitadas: 1.');
+    assert.deepEqual(fila.avisosPendentes(), []);
   } finally {
     fila.fechar();
   }

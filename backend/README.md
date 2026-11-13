@@ -302,3 +302,21 @@ Use o JWT do produtor nas rotas de pesagem do animal.
 `GET /api/deteccoes/exportar` baixa `deteccoes.csv` com JWT do produtor. Aceita os mesmos filtros `animal_id`, `zona_id`, `inicio` e `fim` da consulta. O arquivo inclui todas as linhas filtradas em uma única consulta consistente ao banco; parâmetros de paginação são rejeitados. O período inclui o início e exclui o fim. Sem leituras, retorna apenas o cabeçalho.
 
 O CSV usa UTF-8 com BOM, ponto e vírgula e datas ISO com fuso. Campos textuais que poderiam executar fórmulas de planilha recebem um apóstrofo de proteção. Esta primeira versão monta o resultado completo em memória e atende ao volume da demonstração acadêmica. Instalações com histórico volumoso precisam de exportação em lotes ou processamento assíncrono.
+
+## Central de avisos operacionais
+
+`GET /api/alertas?estado=novo&limit=20&offset=0` exige o JWT do produtor e devolve `{ data, count, limit, offset }`. O filtro de estado é opcional e aceita `novo`, `lido` ou `resolvido`. A ordem é de criação decrescente, com desempate por ID. O contrato é `Alerta` em `@argos/shared`.
+
+`PATCH /api/alertas/:id` com `{"estado":"lido"}` ou `{"estado":"resolvido"}` retorna `{ data }`. As datas são geradas pelo banco. Repetir a ação conserva as datas anteriores. Marcar um aviso resolvido como lido conserva o estado resolvido, inclusive com requisições concorrentes. Resolver também preenche a data de leitura. IDs de outra propriedade retornam 404.
+
+O worker gera `deteccao_rejeitada` quando a validação de cadastro falha em uma mensagem de receptor cadastrado na propriedade. A origem identifica o evento por receptor, evitando avisos duplicados em replays. Se o receptor está desconhecido ou pertence a outra propriedade, o worker mantém a rejeição no terminal. O aviso precisa ser persistido antes de concluir a rejeição local; falha de rede mantém a pendência no SQLite.
+
+A detecção de queda de placa por mensagem periódica e o aviso de sincronização de lote ainda estão planejados. O comando de integração `pnpm --dir backend exec tsx --test tests/integracao/monitoramento.ts` verifica a geração do aviso, a conservação das datas, concorrência e isolamento entre duas propriedades temporárias.
+
+### Aviso de sincronização concluída
+
+O worker registra um lote local por propriedade quando observa uma falha no envio ao Supabase ou na gravação de uma rejeição. Os eventos pendentes dessa propriedade, incluindo os recebidos durante a recuperação, pertencem ao lote. Depois de processar todos eles, publica na central um aviso `sincronizacao_concluida`, com início da interrupção observada, conclusão e contagens de detecções confirmadas e rejeitadas.
+
+Os lotes e o envio do aviso ficam no mesmo arquivo SQLite da fila e sobrevivem a reinícios. Se a resposta do Supabase se perder, o identificador do lote evita criar outro aviso ou reabrir o original. Uma nova interrupção após a conclusão cria um novo lote. A contagem de confirmadas inclui eventos já existentes no Supabase cujo replay foi reconhecido.
+
+O aviso indica uma interrupção de sincronização observada pelo worker, que também pode decorrer de indisponibilidade do banco ou falha de credenciais. Seu início corresponde à primeira tentativa que falhou. O aviso chega à central após a recuperação; o terminal continua mostrando as pendências durante a interrupção. Fluxos sem falha observada seguem sem aviso de retomada. O histórico de propriedades desconhecidas permanece somente no log local.
