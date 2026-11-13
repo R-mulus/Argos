@@ -1,3 +1,4 @@
+import type { Alerta } from "@argos/shared"
 import { format, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ArrowUpRight } from "lucide-react"
@@ -5,33 +6,28 @@ import { Link } from "react-router"
 
 import { Card, CardContent } from "@/components/ui/card"
 
-type DadosAlerta = {
-  id: string
-  titulo: string
-  descricao: string
-  criadoEm: string // Data ISO 8601, incluindo o fuso quando vier da API.
-}
+type DadosAlerta = Pick<Alerta, "id" | "titulo" | "descricao" | "criado_em">
 
 type CartaoAlertaProps = {
-  data?: DadosAlerta
+  data: DadosAlerta | null
   detailsPath?: string
   className?: string
 }
 
-const alertaSimulado: DadosAlerta = {
+export const alertaSimulado: DadosAlerta = {
   id: "alerta-01",
   titulo: "Alerta de Vaca Atolada",
   descricao: "A vaca atolou mano! vai lá desatolar a coitada.",
-  criadoEm: "2026-09-30T08:45:00",
+  criado_em: "2026-09-30T08:45:00",
 }
 
 export function CartaoAlerta({
-  data = alertaSimulado,
+  data,
   detailsPath = "/alertas",
   className = "",
 }: CartaoAlertaProps) {
-  const dataAlerta = parseISO(data.criadoEm)
-  const dataValida = !Number.isNaN(dataAlerta.getTime())
+  const dataAlerta = data && parseISO(data.criado_em)
+  const dataValida = dataAlerta && !Number.isNaN(dataAlerta.getTime())
 
   return (
     <Card
@@ -49,15 +45,15 @@ export function CartaoAlerta({
         <div className="flex min-w-0 flex-col gap-1 @min-[650px]:flex-row @min-[650px]:items-start @min-[650px]:justify-between @min-[650px]:gap-4">
           <div className="min-w-0">
             <h3 className="break-words text-base leading-snug font-normal @min-[360px]:text-lg @min-[640px]:text-2xl">
-              {data.titulo}
+              {data?.titulo ?? "Nenhum alerta no momento."}
             </h3>
             <p className="mt-1 break-words text-xs leading-snug @min-[360px]:text-sm @min-[640px]:text-base">
-              {data.descricao}
+              {data?.descricao}
             </p>
           </div>
-          {dataValida && (
+          {data && dataValida && (
             <time
-              dateTime={data.criadoEm}
+              dateTime={data.criado_em}
               className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground @min-[400px]:text-xs @min-[650px]:pt-0.5 @min-[650px]:text-sm"
             >
               {format(dataAlerta, "dd/MM/yyyy HH:mm", { locale: ptBR })}

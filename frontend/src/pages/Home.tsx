@@ -1,21 +1,21 @@
 import { AnaliseGeral } from "@/components/custom/AnaliseGeral";
 import { AnalisesModelo } from "@/components/custom/AnalisesModelo";
 import { DistribuicaoComportamento } from "@/components/custom/DistribuicaoComportamento";
-import { ReceptorCard } from "@/components/custom/ReceptorCard";
+import { ReceptorCard, receptorSimulado } from "@/components/custom/ReceptorCard";
 import { RelatorioProcessamentoImagens } from "@/components/custom/RelatorioProcessamentoImagens";
-import { ReceptorResumoCard } from "@/components/custom/ResumoReceptorCard";
+import { ReceptorResumoCard, resumoReceptorSimulado } from "@/components/custom/ResumoReceptorCard";
 import { useState } from "react";
 import { SeletorPeriodo, type PeriodoVisualizacao } from "@/components/custom/SeletorPeriodo";
 import { intervaloSimulado, type IntervaloDatas } from "@/components/custom/CalendarioIntervalo";
 import { SeletorIntervaloDatas } from "@/components/custom/SeletorIntervaloDatas";
-import { CartaoAlerta } from "@/components/custom/CartaoAlerta";
+import { CartaoAlerta, alertaSimulado } from "@/components/custom/CartaoAlerta";
 import { DadosProcessadosDia } from "@/components/custom/DadosProcessadosDia";
 import { TemperaturaMedia } from "@/components/custom/TemperaturaMedia";
 import { ContabilizacaoCabecasMes } from "@/components/custom/ContabilizacaoCabecasMes";
 import { MediaMovimentacao } from "@/components/custom/MediaMovimentacao";
-import { QuantidadeCabecas } from "@/components/custom/QuantidadeCabecas";
-import { ResumoCurral } from "@/components/custom/ResumoCurral";
-import { HistoricoLeitura } from "@/components/custom/HistoricoLeitura";
+import { QuantidadeCabecas, setoresSimulados } from "@/components/custom/QuantidadeCabecas";
+import { ResumoCurral, curralSimulado } from "@/components/custom/ResumoCurral";
+import { HistoricoLeitura, leiturasSimuladas } from "@/components/custom/HistoricoLeitura";
 
 export default function Home() {
 	const [intervalo, setIntervalo] = useState<IntervaloDatas | undefined>(intervaloSimulado);
@@ -29,20 +29,20 @@ export default function Home() {
 					<SeletorIntervaloDatas value={intervalo} onChange={setIntervalo} />
 					<SeletorPeriodo value={periodo} onChange={setPeriodo} />
 				</div>
-				<CartaoAlerta />
+				<CartaoAlerta data={alertaSimulado} />
 			</div>
-			<HistoricoLeitura />
-			<ResumoCurral />
-			<QuantidadeCabecas />
+			<HistoricoLeitura dados={leiturasSimuladas} permitirExportacao />
+			<ResumoCurral dados={curralSimulado} />
+			<QuantidadeCabecas dados={setoresSimulados} />
 			<DadosProcessadosDia />
 			<TemperaturaMedia />
 			<MediaMovimentacao />
 			<ContabilizacaoCabecasMes />
 			<RelatorioProcessamentoImagens />
 			<AnalisesModelo detailsPath="" />
-			<ReceptorCard detailsPath="" />
+			<ReceptorCard data={receptorSimulado} detailsPath="" />
 			<AnaliseGeral detailsPath="" />
-			<ReceptorResumoCard />
+			<ReceptorResumoCard data={resumoReceptorSimulado} />
 			<DistribuicaoComportamento />
 		</div>
 	);

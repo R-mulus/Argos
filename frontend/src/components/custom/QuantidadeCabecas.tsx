@@ -22,12 +22,13 @@ export type SetorCabecas = {
 
 export type QuantidadeCabecasProps = {
   /** Quantidade por setor, preparada para futura resposta da API. */
-  dados?: SetorCabecas[]
+  dados: SetorCabecas[]
+  recentesSemZona?: number
   className?: string
 }
 
 // Valores de demonstração reproduzidos do Figma.
-const dadosSimulados: SetorCabecas[] = [
+export const setoresSimulados: SetorCabecas[] = [
   { id: "curral-3", nome: "Curral 3", quantidade: 1232 },
   { id: "bebedouro", nome: "Bebedouro", quantidade: 890 },
   { id: "curral-1", nome: "Curral 1", quantidade: 425 },
@@ -115,11 +116,15 @@ function RotuloDaFatia({
 }
 
 export function QuantidadeCabecas({
-  dados = dadosSimulados,
+  dados,
+  recentesSemZona = 0,
   className,
 }: QuantidadeCabecasProps) {
   // A API deve enviar cada animal atribuído a um único setor por contabilização.
-  const setores: SetorExibido[] = dados.map((setor, indice) => ({
+  const distribuicao = recentesSemZona > 0
+    ? [...dados, { id: "sem-zona", nome: "Sem zona", quantidade: recentesSemZona }]
+    : dados
+  const setores: SetorExibido[] = distribuicao.map((setor, indice) => ({
     ...setor,
     // Evita números negativos, fracionários ou não finitos no gráfico.
     quantidade: Number.isFinite(setor.quantidade)
