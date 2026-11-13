@@ -219,6 +219,18 @@ Casos negativos a verificar: RSSI fora de -127…0; identificadores inexistentes
 - Não há simulação de distância física por RSSI, nem pipeline GRU/alertas implementados.
 - Erros permanentes de payload são descartados com log; falhas na escrita local dependem da retransmissão QoS 1 e falhas de acesso ao Supabase mantêm os eventos pendentes no SQLite. O provisionamento de broker/credenciais, testes end-to-end MQTT e testes com firmware real são **pendências**, não ações já realizadas.
 
+## Ensaio de monitoramento pelo terminal
+
+Na raiz do repositório, execute:
+
+```bash
+pnpm --dir backend ensaio
+```
+
+Use Docker em execução, Node com suporte a SQLite (22.13 ou posterior), dependências instaladas e internet para o Supabase configurado em `backend/.env`. O comando usa as variáveis `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SECRET_KEY`. O Docker obtém a imagem `emqx/emqx-enterprise:6.3.2` na primeira execução. API, worker, fila SQLite e broker usam recursos temporários próprios.
+
+O ensaio cria uma conta temporária e cadastra um animal, uma coleira e dois receptores pela API. Publica duas leituras simuladas pelo MQTT, repete a primeira e imprime as respostas reais do histórico, da contagem e da última comunicação. O resultado esperado é **duas leituras no histórico, uma cabeça no Bebedouro, zero no Curral e dois receptores com comunicação recente**. Ao finalizar, remove a conta de ensaio e seus cadastros, a fila e o broker. Para validar o alcance do rádio e a coleta durante uma queda de internet, use o roteiro com equipamento físico abaixo.
+
 ## Demonstração de coleta offline
 
 Use Node 22.13 ou posterior com `node:sqlite` disponível. Na raiz, execute `pnpm --dir backend mqtt:worker` com o arquivo de ambiente do backend já configurado. O notebook precisa alcançar o EMQX pela rede local e ter permissão de escrita em `backend/data/`. A coleta inicia mesmo se a internet estiver desligada. Para testar o modo offline, mantenha o Wi-Fi local e o broker ligados e desconecte apenas a saída para a internet.
@@ -266,3 +278,27 @@ No ensaio em 12/11/2026, o relógio do notebook estava cerca de dois segundos at
 - A resposta traz a lista completa para o rebanho da demonstração. As leituras individuais continuam acessíveis em `GET /api/deteccoes`.
 
 O teste opcional `pnpm --dir backend exec tsx --test tests/integracao/monitoramento.ts` usa o projeto Supabase configurado no ambiente do backend. Ele cria duas contas de ensaio e remove ambas e seus cadastros ao terminar.
+
+### Última comunicação dos receptores
+
+`GET /api/monitoramento/receptores?limit=20&offset=0` exige o JWT do produtor e lista os receptores ativos e inativos da sua propriedade. Retorna `{ data, count, limit, offset, atualizado_em }`. Cada item segue `ComunicacaoReceptor` em `@argos/shared` e inclui código, nome, status cadastral, última comunicação e estado observado.
+
+| Estado de comunicação | Interpretação |
+|---|---|
+| `aguardando_primeira_leitura` | O receptor ainda está sem horário de comunicação registrado. |
+| `recente` | O horário registrado está dentro dos últimos cinco minutos, incluindo o limite. |
+| `sem_leitura_recente` | A última comunicação registrada tem mais de cinco minutos. |
+
+O worker registra a hora em que recebeu a leitura no gateway. A API consulta o último valor sincronizado no Supabase; durante a queda da internet, as pendências continuam no SQLite. Ausência de leitura recente também ocorre quando nenhum transmissor passa perto. Estes estados descrevem atividade observada e o campo `status` descreve se o cadastro está ativo ou inativo.
+## Pesagens manuais
+
+Use o JWT do produtor nas rotas de pesagem do animal.
+
+- `POST /api/animais/:id/pesagens` aceita, por exemplo, `{"data_pesagem":"2026-11-13","peso_kg":420.5}`. Uma segunda pesagem do mesmo animal nessa data retorna 409 e preserva o registro original.
+- `GET /api/animais/:id/pesagens?inicio=2026-11-01&fim=2026-11-30&limit=20&offset=0` devolve as pesagens em ordem decrescente de data, o total filtrado e `ganho_medio_diario_kg`. Os filtros de data são opcionais e inclusivos. O cálculo usa a diferença de peso entre a primeira e a última pesagem de todo o período, dividida pelos dias decorridos. Com menos de duas medições, o valor é nulo. Perda de peso gera resultado negativo.
+
+## Exportação do histórico
+
+`GET /api/deteccoes/exportar` baixa `deteccoes.csv` com JWT do produtor. Aceita os mesmos filtros `animal_id`, `zona_id`, `inicio` e `fim` da consulta. O arquivo inclui todas as linhas filtradas em uma única consulta consistente ao banco; parâmetros de paginação são rejeitados. O período inclui o início e exclui o fim. Sem leituras, retorna apenas o cabeçalho.
+
+O CSV usa UTF-8 com BOM, ponto e vírgula e datas ISO com fuso. Campos textuais que poderiam executar fórmulas de planilha recebem um apóstrofo de proteção. Esta primeira versão monta o resultado completo em memória e atende ao volume da demonstração acadêmica. Instalações com histórico volumoso precisam de exportação em lotes ou processamento assíncrono.

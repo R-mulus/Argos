@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import test from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 import { createApp } from '../../src/app.js';
-import type { ResumoMonitoramento } from '@argos/shared';
+import type { ComunicacaoReceptor, HistoricoPesagens, ResumoMonitoramento } from '@argos/shared';
 import 'dotenv/config';
 
 // Executar explicitamente com credenciais de servidor. Cada conta possui apenas dados do ensaio.
@@ -49,6 +49,11 @@ test('resumo reconcilia receptores e isola propriedades', async t => {
     inserir(tabela, { propriedade_id: fazenda.id, ...campos });
   const receptor = (codigo: string) => novo('dispositivos', { codigo, tipo: 'receptor' });
   const r1 = await receptor('R1'), r2 = await receptor('R2');
+  const antigo = new Date(Date.now() - 360_000).toISOString();
+  const recente = new Date(Date.now() - 10_000).toISOString();
+  const r3 = await novo('dispositivos', { codigo: 'R3', tipo: 'receptor', status: 'inativo',
+    ultima_comunicacao_em: antigo });
+  assert.ifError((await admin.from('dispositivos').update({ ultima_comunicacao_em: recente }).eq('id', r2)).error);
   const z1 = await novo('zonas', { nome: 'Curral', receptor_id: r1, ativa: true });
   const z2 = await novo('zonas', { nome: 'Bebedouro', receptor_id: r2, ativa: true });
   async function coleira(identificacao: string) {
@@ -89,4 +94,69 @@ test('resumo reconcilia receptores e isola propriedades', async t => {
   assert.ifError(acesso.error);
   assert.deepEqual(acesso.data.animais, []);
   assert.deepEqual(acesso.data.zonas, []);
+
+  async function receptores(token: string, parametros = '') {
+    const rota = new URL('/api/monitoramento/receptores' + parametros, endpoint);
+    const resposta = await fetch(rota, { headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(resposta.status, 200);
+    return await resposta.json() as { data: ComunicacaoReceptor[]; count: number };
+  }
+  const lista = await receptores(fazenda.token);
+  assert.equal(lista.count, 3);
+  const porId = new Map(lista.data.map(item => [item.id, item]));
+  assert.equal(porId.get(r1)?.estado_comunicacao, 'aguardando_primeira_leitura');
+  assert.equal(porId.get(r2)?.estado_comunicacao, 'recente');
+  assert.equal(porId.get(r3)?.estado_comunicacao, 'sem_leitura_recente');
+  assert.equal(porId.get(r3)?.status, 'inativo');
+  assert.equal(Date.parse(porId.get(r3)!.ultima_comunicacao_em!), Date.parse(antigo));
+  const pagina = await receptores(fazenda.token, '?limit=1&offset=1');
+  assert.equal(pagina.count, 3);
+  assert.deepEqual(pagina.data, lista.data.slice(1, 2));
+  assert.equal((await receptores(outra.token)).count, 0);
+
+  const rotaPeso = new URL('/api/animais/' + resultado.animais[0].animal_id + '/pesagens', endpoint);
+  async function pesar(dia: string, kg: number, token = fazenda.token) {
+    return fetch(rotaPeso, { method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data_pesagem: dia, peso_kg: kg }) });
+  }
+  async function historicoPeso(query: string) {
+    const resposta = await fetch(rotaPeso.href + query, { headers: { Authorization: 'Bearer ' + fazenda.token } });
+    assert.equal(resposta.status, 200);
+    return await resposta.json() as HistoricoPesagens;
+  }
+  assert.equal((await pesar('2026-10-01', 400)).status, 201);
+  assert.equal((await pesar('2026-10-01', 450)).status, 409);
+  assert.equal((await historicoPeso('')).ganho_medio_diario_kg, null);
+  assert.equal((await pesar('2026-10-11', 390)).status, 201);
+  assert.equal((await pesar('2026-10-21', 420)).status, 201);
+  const periodo = await historicoPeso('?inicio=2026-10-01&fim=2026-10-11&limit=1');
+  assert.equal(periodo.count, 2);
+  assert.equal(periodo.ganho_medio_diario_kg, -1);
+  assert.deepEqual(periodo.data, [{ data_pesagem: '2026-10-11', peso_kg: 390 }]);
+  assert.equal((await historicoPeso('')).ganho_medio_diario_kg, 1);
+  assert.equal((await pesar('2026-10-31', 401, outra.token)).status, 404);
+  const externo = await db.rpc('historico_pesagens', { p_animal: resultado.animais[0].animal_id,
+    p_inicio: null, p_fim: null, p_limit: 20, p_offset: 0 });
+  assert.ifError(externo.error);
+  assert.equal(externo.data.count, 0);
+
+  // Supera o limite padrão de mil linhas da API de dados.
+  const extras = Array.from({ length: 1001 }, (_, i) => ({
+    propriedade_id: fazenda.id, ...a, receptor_id: r1, zona_id: z1,
+    evento_id: 'exportacao:' + i, rssi_dbm: -75, recebido_no_gateway_em: data(-60000),
+  }));
+  assert.ifError((await admin.from('deteccoes').insert(extras)).error);
+  const rotaCsv = new URL('/api/deteccoes/exportar', endpoint);
+  rotaCsv.searchParams.set('animal_id', resultado.animais[0].animal_id);
+  rotaCsv.searchParams.set('zona_id', z1);
+  const csv = await fetch(rotaCsv, { headers: { Authorization: 'Bearer ' + fazenda.token } });
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get('content-disposition')!, /deteccoes.csv/);
+  assert.equal((await csv.text()).trimEnd().split('\r\n').length, 1004);
+  const alheio = await fetch(rotaCsv, { headers: { Authorization: 'Bearer ' + outra.token } });
+  assert.equal((await alheio.text()).trimEnd().split('\r\n').length, 1);
+  rotaCsv.searchParams.set('inicio', data(0));
+  const periodoCsv = await fetch(rotaCsv, { headers: { Authorization: 'Bearer ' + fazenda.token } });
+  assert.equal((await periodoCsv.text()).trimEnd().split('\r\n').length, 2);
 });

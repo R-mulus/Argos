@@ -8,8 +8,9 @@ import { animalRoutes } from './routes/animal.routes.js';
 import { dispositivoRoutes } from './routes/dispositivo.routes.js';
 import { zonaRoutes } from './routes/zona.routes.js';
 import { vinculoRoutes } from './routes/vinculo.routes.js';
-import { listarDeteccoes } from './controllers/deteccao.controller.js';
+import { listarDeteccoes, exportarDeteccoes } from './controllers/deteccao.controller.js';
 import { resumoMonitoramento } from './controllers/monitoramento.controller.js';
+import { listarComunicacaoReceptores } from './controllers/dispositivo.controller.js';
 
 export function createApp(config: Config) {
   const app = express();
@@ -28,7 +29,9 @@ export function createApp(config: Config) {
   app.use('/api/zonas', zonaRoutes);
   app.use('/api/vinculos', vinculoRoutes);
   app.get('/api/deteccoes', listarDeteccoes);
+  app.get('/api/deteccoes/exportar', exportarDeteccoes);
   app.get('/api/monitoramento/resumo', resumoMonitoramento);
+  app.get('/api/monitoramento/receptores', listarComunicacaoReceptores);
 
   app.use(notFound);
   app.use(errorHandler);
