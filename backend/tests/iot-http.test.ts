@@ -20,6 +20,7 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
     const health = await fetch(`${base}/api/health`);
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { status: 'ok' });
+    assert.equal((await fetch(base + '/api/deteccoes/retencao?dias=90')).status, 401);
 
     assert.equal((await fetch(base + '/api/alertas')).status, 401);
     assert.equal((await fetch(base + '/api/alertas/5a61dabf-08c8-4ee1-9de7-1a134751f6bb', {

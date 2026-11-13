@@ -1,5 +1,17 @@
 export const NOME_DO_APP = "Argos é o nome do sistema";
 
+export interface PreviaRetencao {
+  calculado_em: string;
+  dias: number;
+  corte_recebido_em: string;
+  total: number;
+  elegiveis: number;
+  preservadas: number;
+  primeira_recebida_em: string | null;
+  ultima_elegivel_recebida_em: string | null;
+  animais_sem_historico_apos_corte: number;
+}
+
 export interface Alerta {
   id: string;
   propriedade_id: string;

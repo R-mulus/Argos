@@ -1,4 +1,5 @@
 import express from 'express';
+import { consultarPreviaRetencao } from './controllers/retencao.controller.js';
 import { listarAlertas, atualizarAlerta } from './controllers/alerta.controller.js';
 import cors from 'cors';
 import type { Config } from './config/env.js';
@@ -30,6 +31,7 @@ export function createApp(config: Config) {
   app.use('/api/zonas', zonaRoutes);
   app.use('/api/vinculos', vinculoRoutes);
   app.get('/api/deteccoes', listarDeteccoes);
+  app.get('/api/deteccoes/retencao', consultarPreviaRetencao);
   app.get('/api/alertas', listarAlertas);
   app.patch('/api/alertas/:id', atualizarAlerta);
   app.get('/api/deteccoes/exportar', exportarDeteccoes);
