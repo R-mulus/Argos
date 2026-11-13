@@ -1,5 +1,29 @@
 export const NOME_DO_APP = "Argos é o nome do sistema";
 
+export interface PosicaoAnimal {
+  animal_id: string;
+  identificacao: string;
+  ultima_deteccao_em: string | null;
+  instante_posicao: string | null;
+  zona_id: string | null;
+  zona_nome: string | null;
+  receptor_id: string | null;
+  rssi_dbm: number | null;
+  estado: 'recente' | 'desatualizado' | 'sem_horario' | 'nunca_detectado';
+}
+
+export interface ResumoMonitoramento {
+  atualizado_em: string;
+  total_ativos: number;
+  recentes: number;
+  recentes_sem_zona: number;
+  desatualizados: number;
+  sem_horario: number;
+  nunca_detectados: number;
+  animais: PosicaoAnimal[];
+  zonas: { id: string; nome: string; quantidade: number }[];
+}
+
 export interface DeteccaoHistorico {
   id: string;
   propriedade_id: string;
