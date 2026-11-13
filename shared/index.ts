@@ -1,5 +1,27 @@
 export const NOME_DO_APP = "Argos é o nome do sistema";
 
+export interface Pesagem {
+  data_pesagem: string;
+  peso_kg: number;
+}
+
+export interface HistoricoPesagens {
+  data: Pesagem[];
+  count: number;
+  limit: number;
+  offset: number;
+  ganho_medio_diario_kg: number | null;
+}
+
+export interface ComunicacaoReceptor {
+  id: string;
+  codigo: string;
+  nome: string | null;
+  status: 'ativo' | 'inativo';
+  ultima_comunicacao_em: string | null;
+  estado_comunicacao: 'aguardando_primeira_leitura' | 'recente' | 'sem_leitura_recente';
+}
+
 export interface PosicaoAnimal {
   animal_id: string;
   identificacao: string;

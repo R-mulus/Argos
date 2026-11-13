@@ -1,5 +1,11 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+> **13/11/2026 — pesagens manuais.** Implementados registro diário por animal e consulta autenticada por período com ganho médio diário. Migração 20261113155333 aplicada no projeto Supabase. O contrato está em `@argos/shared`. Integração visual pendente.
+
+> **12/11/2026 — ensaio do backend pelo terminal.** `pnpm --dir backend ensaio` validado com EMQX em Docker, SQLite, API Express e Supabase real. Dois receptores simulados e uma retransmissão resultaram em duas leituras, um animal contado e comunicação recente em ambos os receptores. Verificação de tipos e 20 testes do backend aprovados. O ensaio com ESP32 físico segue pendente.
+
+> **12/11/2026 — comunicação dos receptores.** O PR #6 já entrou na dev. A rota autenticada `GET /api/monitoramento/receptores` lista a última comunicação sincronizada dos receptores da propriedade e diferencia primeira leitura pendente, leitura recente e ausência de leitura recente. Reutiliza o campo de comunicação existente e a paginação dos dispositivos. Verificação de tipos, 20 testes do backend e ensaio HTTP com duas propriedades temporárias no Supabase aprovados.
+
 > **12/11/2026 — monitoramento por zona.** O histórico do PR #5 foi integrado à dev. A nova rota autenticada `GET /api/monitoramento/resumo` consolida os animais ativos por zona com janela de 2 segundos para RSSI e 5 minutos para recência. Migração aplicada no Supabase. Verificação de tipos, 20 testes do backend e teste de integração do resumo com duas propriedades aprovados. O frontend pode consumir o contrato em `@argos/shared`.
 
 > **12/11/2026 — histórico de detecções para revisão em dev.** Implementada a rota autenticada `GET /api/deteccoes` com paginação e filtros por animal, zona e período. Migração 20261112165455 aplicada no Supabase do Argos. A primeira recepção pelo gateway é preservada inclusive após reinício. Verificação de tipos e 20 testes aprovados. Ensaio com EMQX 6.3.2, interrupção controlada do acesso do worker ao Supabase real, três eventos e uma retransmissão, reinício, transferência de coleira e duas propriedades confirmou deduplicação, vínculo histórico e isolamento pela API e por RLS. Contas temporárias removidas. A contagem consolidada por zona segue planejada.
@@ -148,3 +154,5 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 4. Instale dependências via `pnpm` e execute o projeto conforme `README.md` / `.vscode/tasks.json`.
 5. Defina um escopo pequeno e combine quais arquivos serão de sua responsabilidade.
 6. Ao concluir, execute as verificações, atualize este documento e abra PR para revisão.
+
+> **13/11/2026 — exportação CSV.** Rota autenticada de exportação de todo o histórico filtrado, com consulta consistente e isolamento por propriedade. Migração aplicada no Supabase. Verificação de tipos, 21 testes locais e integração com mais de mil leituras temporárias aprovados. Arquivos gerados em memória para o volume da demonstração.

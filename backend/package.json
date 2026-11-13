@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "ensaio": "tsx --test tests/integracao/ensaio-terminal.ts",
     "mqtt:worker": "tsx src/mqtt/worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
