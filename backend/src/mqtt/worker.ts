@@ -22,7 +22,9 @@ let encerrando = false;
 let timer: NodeJS.Timeout;
 async function sincronizar() {
   try {
-    const total = await sincronizarLote(fila, evento => processarDeteccao(repositorio, evento));
+    const total = await sincronizarLote(fila,
+      evento => processarDeteccao(repositorio, evento),
+      (evento, motivo) => repositorio.registrarRejeicao(evento, motivo));
     if (total) console.info(fila.resumo());
   } catch {
     console.warn('Sincronização interrompida. Confira a rede e o acesso ao Supabase.', fila.resumo());
