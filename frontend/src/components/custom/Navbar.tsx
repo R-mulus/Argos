@@ -1,3 +1,4 @@
+import { supabase } from "@/lib/sessao";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -25,6 +26,27 @@ export default function Navbar() {
 	const location = useLocation();
 
 	const [mobileOpen, setMobileOpen] = useState(false);
+
+	const [saindo, setSaindo] = useState(false);
+	const [erro, setErro] = useState("");
+	function abrir(caminho: string) {
+		setMobileOpen(false);
+		navigate(caminho);
+	}
+	async function sair() {
+		if (!supabase || saindo) return;
+		setSaindo(true);
+		setErro("");
+		try {
+			const { error } = await supabase.auth.signOut({ scope: "local" });
+			if (error) throw error;
+			navigate("/auth", { replace: true });
+		} catch {
+			setErro("Não foi possível sair. Tente novamente.");
+		} finally {
+			setSaindo(false);
+		}
+	}
 
 	return (
 		<nav
@@ -134,18 +156,18 @@ export default function Navbar() {
 							<span>Perfil</span>
 						</ToggleGroupItem>
 
-						<ToggleGroupItem
-							value="/perfil"
-							onClick={() => {
-								// Adicionar lógica de logout.
-							}}
-							aria-label="Ir para Perfil"
+						</ToggleGroup>
+					<Button
+							variant="ghost"
+							disabled={saindo}
+							onClick={sair}
+							aria-label="Sair da conta"
 							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<LogOut className="size-5" />
 							<span>Sair</span>
-						</ToggleGroupItem>
-					</ToggleGroup>
+						</Button>
+
 				</ButtonGroup>
 			</div>
 
@@ -176,7 +198,7 @@ export default function Navbar() {
 						{/* Início */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/")}
+							onClick={() => abrir("/")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/"
 									? "bg-secondary-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -190,7 +212,7 @@ export default function Navbar() {
 						{/* Animais */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/animals")}
+							onClick={() => abrir("/animals")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/animals"
 									? "bg-secondary-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -204,7 +226,7 @@ export default function Navbar() {
 						{/* Receptores */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/receptores")}
+							onClick={() => abrir("/receptores")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/receptores"
 									? "bg-secondary-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -218,7 +240,7 @@ export default function Navbar() {
 						{/* Alertas */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/alertas")}
+							onClick={() => abrir("/alertas")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/alertas"
 									? "bg-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -234,7 +256,7 @@ export default function Navbar() {
 						{/* Perfil */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/perfil")}
+							onClick={() => abrir("/perfil")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/perfil"
 									? "bg-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -248,7 +270,7 @@ export default function Navbar() {
 						{/* Configurações */}
 						<Button
 							variant="ghost"
-							onClick={() => navigate("/configuracoes")}
+							onClick={() => abrir("/configuracoes")}
 							className={`justify-start gap-3 ${
 								location.pathname === "/configuracoes"
 									? "bg-foreground font-semibold text-secondary hover:bg-foreground hover:text-secondary"
@@ -262,9 +284,8 @@ export default function Navbar() {
 						{/* Sair */}
 						<Button
 							variant="ghost"
-							onClick={() => {
-								// Adicionar lógica de logout.
-							}}
+							onClick={sair}
+							disabled={saindo}
 							className="justify-start gap-3 text-secondary-foreground hover:bg-foreground/10 hover:text-secondary-foreground"
 						>
 							<LogOut className="size-5" />
@@ -273,6 +294,7 @@ export default function Navbar() {
 					</div>
 				</SheetContent>
 			</Sheet>
+		{erro && <p role="alert">{erro}</p>}
 		</nav>
 	);
 }

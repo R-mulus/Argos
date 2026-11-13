@@ -1,5 +1,9 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+## Navegação e acesso pelo navegador
+
+Login por e-mail e senha, retorno à rota solicitada, restauração da sessão, saída e navegação desktop e mobile implementados. O início consulta o resumo real e as telas de animais, receptores e alertas listam registros da propriedade pela API. Perfil exibe o e-mail. Configurações aguarda a tela definitiva e a galeria de exemplos fica em `#/demonstracao`. O [guia do frontend](frontend/README.md) descreve as variáveis públicas e os comandos. Build, lint e ensaio em Chrome com conta temporária, API Express e Supabase real validados em 13/11/2026.
+
 ## Estado do backend na dev após o PR #10
 
 Cadastros, ingestão MQTT, fila SQLite, sincronização automática, histórico filtrado, resumo por zona, comunicação observada dos receptores, pesagens, CSV e avisos operacionais estão integrados. A retenção tem prévia por propriedade e prazo de referência aprovado de **90 dias**, contado da chegada ao PostgreSQL. A limpeza automática e a consolidação continuam pendentes.
