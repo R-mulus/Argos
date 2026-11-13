@@ -1,8 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { DeteccaoMqtt } from './contract.js';
 import type { DetecaoPersistida, DispositivoIoT, RepositorioDeteccoes, VinculoIoT } from './processor.js';
 
 export class SupabaseRepositorioDeteccoes implements RepositorioDeteccoes {
   constructor(private readonly db: SupabaseClient) {}
+
+  async registrarRejeicao(evento: DeteccaoMqtt, motivo: string): Promise<void> {
+    const receptor = await this.buscarDispositivo(evento.propriedadeId, evento.receptorId);
+    if (!receptor || receptor.tipo !== 'receptor') return;
+    const { error } = await this.db.from('alertas').upsert({
+      propriedade_id: evento.propriedadeId, dispositivo_id: evento.receptorId,
+      origem_evento: evento.receptorId + ':' + evento.eventoId,
+      tipo: 'deteccao_rejeitada', titulo: 'Detecção rejeitada por cadastro incompatível',
+      descricao: motivo, prioridade: 'media',
+    }, { onConflict: 'propriedade_id,origem_evento', ignoreDuplicates: true });
+    if (error) throw error;
+  }
 
   async buscarDispositivo(propriedadeId: string, id: string): Promise<DispositivoIoT | null> {
     const { data, error } = await this.db.from('dispositivos')

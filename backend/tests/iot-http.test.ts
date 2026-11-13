@@ -21,6 +21,12 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { status: 'ok' });
 
+    assert.equal((await fetch(base + '/api/alertas')).status, 401);
+    assert.equal((await fetch(base + '/api/alertas/5a61dabf-08c8-4ee1-9de7-1a134751f6bb', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'lido' }),
+    })).status, 401);
+
     for (const path of ['/api/dispositivos', '/api/zonas', '/api/vinculos', '/api/deteccoes', '/api/monitoramento/resumo', '/api/monitoramento/receptores']) {
       const response = await fetch(base + path);
       assert.equal(response.status, 401, path);

@@ -6,6 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 import { createApp } from '../../src/app.js';
 import type { ComunicacaoReceptor, HistoricoPesagens, ResumoMonitoramento } from '@argos/shared';
 import 'dotenv/config';
+import type { Alerta } from '@argos/shared';
+import { FilaDeteccoes } from '../../src/mqtt/fila.js';
+import { sincronizarLote } from '../../src/mqtt/sincronizacao.js';
+import { processarDeteccao } from '../../src/mqtt/processor.js';
+import { SupabaseRepositorioDeteccoes } from '../../src/mqtt/supabase-repository.js';
 
 // Executar explicitamente com credenciais de servidor. Cada conta possui apenas dados do ensaio.
 test('resumo reconcilia receptores e isola propriedades', async t => {
@@ -159,4 +164,51 @@ test('resumo reconcilia receptores e isola propriedades', async t => {
   rotaCsv.searchParams.set('inicio', data(0));
   const periodoCsv = await fetch(rotaCsv, { headers: { Authorization: 'Bearer ' + fazenda.token } });
   assert.equal((await periodoCsv.text()).trimEnd().split('\r\n').length, 2);
+
+  const fila = new FilaDeteccoes(':memory:');
+  t.after(() => fila.fechar());
+  const repositorio = new SupabaseRepositorioDeteccoes(admin);
+  const eventoInvalido = { propriedadeId: fazenda.id, receptorId: r1, transmissorId: randomUUID(),
+    eventoId: 'falha:1', rssiDbm: -60, bateriaPercentual: null,
+    detectadoEm: null, recebidoEm: new Date().toISOString() };
+  fila.guardar(eventoInvalido);
+  await assert.rejects(sincronizarLote(fila, e => processarDeteccao(repositorio, e),
+    async () => { throw new Error('Falha de rede ao gravar aviso'); }));
+  assert.equal(fila.pendentes().length, 1);
+  await sincronizarLote(fila, e => processarDeteccao(repositorio, e),
+    (e, motivo) => repositorio.registrarRejeicao(e, motivo));
+  assert.equal(fila.pendentes().length, 0);
+  const rotaAlerta = new URL('/api/alertas', endpoint);
+  async function avisos(token: string) {
+    const resposta = await fetch(rotaAlerta, { headers: { Authorization: 'Bearer ' + token } });
+    assert.equal(resposta.status, 200);
+    return await resposta.json() as { data: Alerta[]; count: number };
+  }
+  const listaAvisos = await avisos(fazenda.token);
+  assert.equal(listaAvisos.count, 1);
+  const aviso = listaAvisos.data[0];
+  assert.equal(aviso.tipo, 'deteccao_rejeitada');
+  assert.equal(aviso.dispositivo_id, r1);
+  assert.equal(aviso.estado, 'novo');
+  assert.equal((await avisos(outra.token)).count, 0);
+  async function atualizar(estado: string, token = fazenda.token) {
+    return fetch(rotaAlerta.href + '/' + aviso.id, { method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado }) });
+  }
+  assert.equal((await atualizar('lido', outra.token)).status, 404);
+  assert.equal((await atualizar('novo')).status, 400);
+  const lido = await atualizar('lido');
+  assert.equal(lido.status, 200);
+  const leitura = (await lido.json() as { data: Alerta }).data;
+  assert.ok(leitura.lido_em);
+  const concorrentes = await Promise.all([atualizar('resolvido'), atualizar('lido')]);
+  assert.ok(concorrentes.every(r => r.status === 200));
+  const resolvido = (await avisos(fazenda.token)).data[0];
+  assert.equal(resolvido.estado, 'resolvido');
+  assert.equal(resolvido.lido_em, leitura.lido_em);
+  assert.ok(resolvido.resolvido_em);
+  await repositorio.registrarRejeicao(eventoInvalido, 'Tentativa repetida');
+  await atualizar('resolvido');
+  assert.deepEqual((await avisos(fazenda.token)).data[0], resolvido);
 });
