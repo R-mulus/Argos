@@ -211,4 +211,17 @@ test('resumo reconcilia receptores e isola propriedades', async t => {
   await repositorio.registrarRejeicao(eventoInvalido, 'Tentativa repetida');
   await atualizar('resolvido');
   assert.deepEqual((await avisos(fazenda.token)).data[0], resolvido);
+  const lotes = fila.avisosPendentes();
+  assert.equal(lotes.length, 1);
+  assert.equal(lotes[0].rejeitadas, 1);
+  await sincronizarLote(fila, async () => {}, undefined, async lote => {
+    await repositorio.registrarSincronizacao(lote);
+  });
+  // Repetir o envio remoto conserva um único aviso e o seu estado.
+  await repositorio.registrarSincronizacao(lotes[0]);
+  const retomada = await avisos(fazenda.token);
+  assert.equal(retomada.count, 2);
+  assert.equal(retomada.data.filter(a => a.tipo === 'sincronizacao_concluida').length, 1);
+  assert.equal((await avisos(outra.token)).count, 0);
+  assert.deepEqual(fila.avisosPendentes(), []);
 });

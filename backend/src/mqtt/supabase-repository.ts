@@ -1,9 +1,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeteccaoMqtt } from './contract.js';
+import type { LoteSincronizado } from './fila.js';
 import type { DetecaoPersistida, DispositivoIoT, RepositorioDeteccoes, VinculoIoT } from './processor.js';
 
 export class SupabaseRepositorioDeteccoes implements RepositorioDeteccoes {
   constructor(private readonly db: SupabaseClient) {}
+
+  async registrarSincronizacao(lote: LoteSincronizado): Promise<void> {
+    const propriedade = await this.db.from('propriedades').select('id').eq('id', lote.propriedade).maybeSingle();
+    if (propriedade.error) throw propriedade.error;
+    if (!propriedade.data) return;
+    const { error } = await this.db.from('alertas').upsert({
+      propriedade_id: lote.propriedade, origem_evento: 'sincronizacao:' + lote.id,
+      tipo: 'sincronizacao_concluida', titulo: 'Detecções pendentes processadas',
+      descricao: `Interrupção observada em ${lote.inicio}. Processamento concluído em ${lote.conclusao}. ${lote.sincronizadas} detecções confirmadas e ${lote.rejeitadas} rejeitadas.`,
+      prioridade: 'baixa',
+    }, { onConflict: 'propriedade_id,origem_evento', ignoreDuplicates: true });
+    if (error) throw error;
+  }
 
   async registrarRejeicao(evento: DeteccaoMqtt, motivo: string): Promise<void> {
     const receptor = await this.buscarDispositivo(evento.propriedadeId, evento.receptorId);
