@@ -156,3 +156,5 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 6. Ao concluir, execute as verificações, atualize este documento e abra PR para revisão.
 
 > **13/11/2026 — exportação CSV.** Rota autenticada de exportação de todo o histórico filtrado, com consulta consistente e isolamento por propriedade. Migração aplicada no Supabase. Verificação de tipos, 21 testes locais e integração com mais de mil leituras temporárias aprovados. Arquivos gerados em memória para o volume da demonstração.
+
+> **13/11/2026 — central de avisos operacionais.** Rotas autenticadas para listar avisos e marcar leitura ou resolução. O worker registra uma ocorrência por evento rejeitado de receptor cadastrado. Replays preservam o aviso original. Migração aplicada no Supabase. Verificação de tipos e ensaio com duas contas temporárias confirmaram isolamento, idempotência, concorrência e recuperação de falha na gravação do aviso. Avisos de sincronização de lote e heartbeat seguem planejados.
