@@ -1,5 +1,18 @@
 # STATUS_DESENVOLVIMENTO.md — Argos
 
+## Estado do backend na dev após o PR #10
+
+Cadastros, ingestão MQTT, fila SQLite, sincronização automática, histórico filtrado, resumo por zona, comunicação observada dos receptores, pesagens, CSV e avisos operacionais estão integrados. A retenção tem prévia por propriedade e prazo de referência aprovado de **90 dias**, contado da chegada ao PostgreSQL. A limpeza automática e a consolidação continuam pendentes.
+
+| Frente | Próxima verificação |
+|---|---|
+| Backend para a apresentação | Repetir o [ensaio pelo terminal](backend/README.md#ensaio-de-monitoramento-pelo-terminal) no notebook do ginásio. Testar também uma interrupção da internet mantendo o broker acessível na rede local, reiniciar o worker e conferir a sincronização sem duplicatas. |
+| Telas | Consumir os [contratos HTTP](backend/README.md#contrato-http) com JWT. Conferir em conjunto que dois receptores lendo o mesmo animal resultam em uma cabeça no resumo. |
+| ESP32 | Provisionar os IDs dos cadastros e testar uma placa com o [contrato MQTT v1](backend/README.md#contrato-mqtt-v1), inclusive a retransmissão com o mesmo identificador de evento. |
+| ML e retenção | Usar a exportação para combinar os campos e a granularidade necessários ao treino antes de ativar descarte. Preservar a última posição conhecida e o histórico consolidado ao implementar a retenção. |
+
+Os registros datados abaixo descrevem cada etapa na época em que foi executada.
+
 > **13/11/2026 — pesagens manuais.** Implementados registro diário por animal e consulta autenticada por período com ganho médio diário. Migração 20261113155333 aplicada no projeto Supabase. O contrato está em `@argos/shared`. Integração visual pendente.
 
 > **12/11/2026 — ensaio do backend pelo terminal.** `pnpm --dir backend ensaio` validado com EMQX em Docker, SQLite, API Express e Supabase real. Dois receptores simulados e uma retransmissão resultaram em duas leituras, um animal contado e comunicação recente em ambos os receptores. Verificação de tipos e 20 testes do backend aprovados. O ensaio com ESP32 físico segue pendente.

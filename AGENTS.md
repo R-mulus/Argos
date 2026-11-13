@@ -8,7 +8,7 @@
 
 ## 1. Antes de qualquer alteração
 
-1. Leia `README.md`, `ARGOS_CONTEXT.md` e `docs/STATUS_DESENVOLVIMENTO.md`.
+1. Leia `README.md`, `ARGOS_CONTEXT.md` e `STATUS_DESENVOLVIMENTO.md`.
 2. Confira a **branch atual** (`git branch --show-current`), os arquivos realmente existentes e as dependências de cada pacote. Não pressuponha que o conteúdo de conversas com IAs esteja no GitHub.
 3. Examine componentes e utilitários existentes antes de criar um novo. Priorize a reutilização e evite duplicações.
 4. Consulte a documentação atual das tecnologias envolvidas, sobretudo quando APIs ou versões podem ter mudado.
@@ -21,7 +21,7 @@
 1. Solicitação explícita e mais recente do integrante responsável.
 2. Código e configurações **efetivamente presentes na branch em uso** (para fatos sobre o que existe/compila).
 3. `README.md` e `ARGOS_CONTEXT.md` (para regras e arquitetura do projeto).
-4. `docs/STATUS_DESENVOLVIMENTO.md` (inventário que deve ser atualizado após mudanças reais).
+4. `STATUS_DESENVOLVIMENTO.md` (inventário que deve ser atualizado após mudanças reais).
 5. ERS e outros documentos acadêmicos, observadas as divergências já identificadas.
 
 Se documentos entrarem em conflito, **sinalize a divergência**. Nunca modifique requisitos ou arquitetura silenciosamente.
@@ -81,7 +81,7 @@ Se documentos entrarem em conflito, **sinalize a divergência**. Nunca modifique
 - Commits pequenos e descritivos; PRs para `dev` após revisão. Não fazer force-push em branch compartilhada.
 - Antes de iniciar: `git fetch`, verificar branch-base, executar `git status` e ler os commits recentes. Sincronizar a base conforme estratégia combinada pelo grupo.
 - Não resolver conflitos automaticamente se afetarem trabalho de outro integrante. Explicar os conflitos e pedir orientação.
-- Atualizar `docs/STATUS_DESENVOLVIMENTO.md` **junto com** commits que adicionem telas, endpoints ou funcionalidades e listar os testes executados.
+- Atualizar `STATUS_DESENVOLVIMENTO.md` **junto com** commits que adicionem telas, endpoints ou funcionalidades e listar os testes executados.
 
 ## 6. Verificação e segurança
 

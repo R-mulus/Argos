@@ -15,3 +15,5 @@ Não introduza dados de teste em migrations de estrutura. O consumidor MQTT deve
 Em 12/11/2026 foi aplicada a migração `20261112165455_argos_historico_deteccoes.sql`. Ela adiciona o horário de recepção no gateway, a consulta de histórico com as políticas de acesso do usuário e o índice usado na paginação. Eventos anteriores mantêm os horários originalmente registrados.
 
 A migração 20261113000010_argos_resumo_monitoramento.sql cria a consulta consolidada por animal e zona. Foi aplicada no projeto da apresentação.
+
+As migrações seguintes adicionam pesagens manuais, exportação CSV, central de avisos e prévia de retenção. Consulte os [arquivos SQL em ordem de versão](migrations/) e os [contratos de uso na API](../backend/README.md). A prévia calcula o impacto do prazo selecionado sem excluir leituras.

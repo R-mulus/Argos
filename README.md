@@ -1,6 +1,12 @@
 # Argos
 Repositório direcionado para o desenvolvimento da aplicação Argos, para o Projeto Integrador V do curso de Sistemas de Informação, UNIPAM.
 
+## Integração para a apresentação
+
+- **Telas (Bernardo)** — autenticar pelo Supabase Auth e enviar o token de acesso à API Express. O resumo por zona já resolve a contagem entre receptores. Consulte os [contratos HTTP e exemplos](backend/README.md#contrato-http) e os [tipos de resposta](shared/index.ts).
+- **ESP32 e ML (Larápio)** — publicar leituras no EMQX conforme o [contrato MQTT v1](backend/README.md#contrato-mqtt-v1). O backend também fornece [CSV filtrado](backend/README.md#exportação-do-histórico) para inspecionar os dados de entrada do ML.
+- **Backend e ensaio** — o [ensaio pelo terminal](backend/README.md#ensaio-de-monitoramento-pelo-terminal) percorre broker, worker, SQLite, Supabase e API usando leituras simuladas. As entregas e pendências estão no [status atual](STATUS_DESENVOLVIMENTO.md).
+
 # 1. Stack do Projeto:
 
 ### Backend

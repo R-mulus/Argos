@@ -214,10 +214,10 @@ Casos negativos a verificar: RSSI fora de -127…0; identificadores inexistentes
 
 ### Limitações importantes
 
-- Esta etapa persiste **detecções brutas** e associa zona/vínculo; não calcula ainda a **zona corrente consolidada de cada animal** entre múltiplos receptores (deve aplicar deduplicação de animal e critério temporal/RSSI antes de contar o rebanho).
+- O worker grava as leituras individuais. Para a posição e a contagem de animais, consulte o [resumo por zona](#monitoramento-por-zona).
 - Para leituras antigas (mais de 5 minutos), o worker preserva o vínculo histórico, quando compatível, mas não atribui a zona atual do receptor retroativamente: `zona_id = NULL` para evitar falsificar histórico quando houve reassociação de receptor. Um protocolo futuro poderá registrar histórico de zonas.
-- Não há simulação de distância física por RSSI, nem pipeline GRU/alertas implementados.
-- Erros permanentes de payload são descartados com log; falhas na escrita local dependem da retransmissão QoS 1 e falhas de acesso ao Supabase mantêm os eventos pendentes no SQLite. O provisionamento de broker/credenciais, testes end-to-end MQTT e testes com firmware real são **pendências**, não ações já realizadas.
+- O RSSI permite comparar receptores para estimar a zona. O pipeline GRU continua planejado. A [central de avisos](#central-de-avisos-operacionais) já registra rejeições de cadastro e recuperação da sincronização.
+- Payload inválido gera log. Falhas na escrita local dependem da retransmissão QoS 1 e falhas de acesso ao Supabase mantêm as leituras pendentes. O ensaio automatizado usa um publicador MQTT simulado. A validação com firmware físico e a rede da apresentação continua pendente.
 
 ## Ensaio de monitoramento pelo terminal
 
@@ -311,7 +311,7 @@ O CSV usa UTF-8 com BOM, ponto e vírgula e datas ISO com fuso. Campos textuais 
 
 O worker gera `deteccao_rejeitada` quando a validação de cadastro falha em uma mensagem de receptor cadastrado na propriedade. A origem identifica o evento por receptor, evitando avisos duplicados em replays. Se o receptor está desconhecido ou pertence a outra propriedade, o worker mantém a rejeição no terminal. O aviso precisa ser persistido antes de concluir a rejeição local; falha de rede mantém a pendência no SQLite.
 
-A detecção de queda de placa por mensagem periódica e o aviso de sincronização de lote ainda estão planejados. O comando de integração `pnpm --dir backend exec tsx --test tests/integracao/monitoramento.ts` verifica a geração do aviso, a conservação das datas, concorrência e isolamento entre duas propriedades temporárias.
+A detecção de queda de placa por mensagem periódica depende de um contrato de heartbeat com o firmware. O comando de integração `pnpm --dir backend exec tsx --test tests/integracao/monitoramento.ts` verifica a geração do aviso, a conservação das datas, concorrência e isolamento entre duas propriedades temporárias.
 
 ### Aviso de sincronização concluída
 
