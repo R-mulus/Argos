@@ -254,3 +254,15 @@ A resposta contém `data`, `count` (total filtrado), `limit` e `offset`. Cada it
 Aplique a migração `20261112165455_argos_historico_deteccoes.sql` em instalações novas antes de atualizar o worker. O projeto Supabase da apresentação já recebeu a migração.
 
 No ensaio em 12/11/2026, o relógio do notebook estava cerca de dois segundos atrás do banco. Para a apresentação, prepare zona e vínculo antes da primeira leitura e sincronize os relógios. Uma leitura com horário anterior ao cadastro pode vir sem associação.
+
+## Monitoramento por zona
+
+`GET /api/monitoramento/resumo` usa o JWT do produtor e devolve `{ data: ResumoMonitoramento }`. O tipo está em `@argos/shared`. A rota usa a propriedade da sessão e inclui os animais ativos cadastrados, mesmo quando nunca tiveram leitura.
+
+- `atualizado_em` indica quando o banco calculou o resumo. Para cada animal, `ultima_deteccao_em` é o instante de referência mais recente (ESP32 ou gateway). A recepção na nuvem não atualiza a posição.
+- Nos dois segundos anteriores à última leitura, incluindo os limites, vence o maior RSSI (por exemplo, −55 dBm vence −80 dBm). Em empate vence a leitura mais recente, depois o menor UUID de receptor e de detecção. `instante_posicao` mostra a hora da leitura escolhida.
+- `recentes` conta animais com observação nos últimos cinco minutos. A soma de `zonas[].quantidade` com `recentes_sem_zona` é igual a `recentes`. Zonas ativas vazias aparecem com zero. Uma zona desativada após a leitura ainda pode aparecer enquanto tiver animais recentes atribuídos.
+- `desatualizados` conserva a última posição disponível, fora da contagem atual. `sem_horario` indica somente leituras legadas sem instante confiável. `nunca_detectados` indica ausência de leitura vinculada. Os quatro estados somam `total_ativos`.
+- A resposta traz a lista completa para o rebanho da demonstração. As leituras individuais continuam acessíveis em `GET /api/deteccoes`.
+
+O teste opcional `pnpm --dir backend exec tsx --test tests/integracao/monitoramento.ts` usa o projeto Supabase configurado no ambiente do backend. Ele cria duas contas de ensaio e remove ambas e seus cadastros ao terminar.
