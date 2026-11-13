@@ -30,7 +30,7 @@ export interface DadosResumoCurral {
 
 export interface ResumoCurralProps {
   /** Dados recebidos de uma API ou fornecidos pela página. */
-  dados?: Partial<DadosResumoCurral>
+  dados: Partial<DadosResumoCurral>
   /** Caminho da imagem na pasta public ou URL; permite reutilizar o card em outros currais. */
   imagemFundo?: string
   /** Quando conectado à API, deve buscar novamente os dados no componente pai. */
@@ -38,7 +38,7 @@ export interface ResumoCurralProps {
   className?: string
 }
 
-const dadosSimulados: DadosResumoCurral = {
+export const curralSimulado: DadosResumoCurral = {
   nome: "Curral 03",
   animaisAtivos: 36,
   receptoresAtivos: 3,
@@ -100,14 +100,11 @@ export function ResumoCurral({
   className,
 }: ResumoCurralProps) {
   const [atualizando, setAtualizando] = useState(false)
-  const [ultimaAtualizacaoSimulada, setUltimaAtualizacaoSimulada] = useState<string>()
   const [erroAtualizacao, setErroAtualizacao] = useState(false)
 
-  const curral = { ...dadosSimulados, ...dados }
-  const alerta = escolherAlertaPrioritario(curral.alertas)
-  const ultimaAtualizacao = aoAtualizar
-    ? curral.ultimaAtualizacao
-    : (ultimaAtualizacaoSimulada ?? curral.ultimaAtualizacao)
+  const curral = dados
+  const alerta = escolherAlertaPrioritario(curral.alertas ?? [])
+  const ultimaAtualizacao = curral.ultimaAtualizacao
 
   async function atualizarDados() {
     if (atualizando) return
@@ -115,13 +112,7 @@ export function ResumoCurral({
     setErroAtualizacao(false)
 
     try {
-      if (aoAtualizar) {
-        // A página faz o refetch da API e envia os novos dados por props.
-        await aoAtualizar()
-      } else {
-        // Sem API, simula somente o momento da atualização; não inventa métricas.
-        setUltimaAtualizacaoSimulada(new Date().toISOString())
-      }
+      await aoAtualizar?.()
     } catch {
       setErroAtualizacao(true)
     } finally {
@@ -131,7 +122,7 @@ export function ResumoCurral({
 
   return (
     <Card
-      aria-label={`Resumo do ${curral.nome}`}
+      aria-label={`Resumo do ${curral.nome ?? "Curral"}`}
       className={cn(
         "@container relative isolate w-full min-w-0 gap-0! overflow-hidden bg-secondary py-0! text-white ring-1 ring-foreground/10",
         className
@@ -153,14 +144,14 @@ export function ResumoCurral({
         <div className="min-w-0 text-right text-[10px] leading-tight text-white @min-[680px]:text-xs">
           <span className="block">Última Atualização:</span>
           <time className="font-semibold" dateTime={ultimaAtualizacao}>
-            {formatarUltimaAtualizacao(ultimaAtualizacao)}
+            {ultimaAtualizacao ? formatarUltimaAtualizacao(ultimaAtualizacao) : "—"}
           </time>
         </div>
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          disabled={atualizando}
+          disabled={atualizando || !aoAtualizar}
           onClick={atualizarDados}
           aria-label={atualizando ? "Atualizando informações do curral" : "Atualizar informações do curral"}
           title="Atualizar dados"
@@ -174,14 +165,14 @@ export function ResumoCurral({
         <header className="flex min-w-0 items-center gap-2 @min-[680px]:max-w-[57%]">
           <Camera aria-hidden="true" className="size-5 shrink-0 @min-[680px]:size-7" />
           <h2 className="min-w-0 truncate text-xl leading-tight font-semibold @min-[440px]:text-2xl @min-[900px]:text-[30px]">
-            {curral.nome}
+            {curral.nome ?? "Curral"}
           </h2>
         </header>
 
         <div className="mt-6 grid min-w-0 grid-cols-1 gap-x-7 gap-y-5 @min-[400px]:grid-cols-[minmax(95px,0.8fr)_minmax(0,3fr)] @min-[740px]:mt-8 @min-[900px]:gap-x-10">
           <div className="min-w-0">
             <p className="text-[clamp(2.6rem,8cqw,4.1rem)] leading-none font-normal tabular-nums">
-              {formatoNumero.format(curral.animaisAtivos)}
+              {curral.animaisAtivos == null ? "—" : formatoNumero.format(curral.animaisAtivos)}
             </p>
             <p className="mt-1 text-xs @min-[680px]:text-sm @min-[900px]:text-base">
               Animais Ativos
@@ -192,37 +183,37 @@ export function ResumoCurral({
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Receptores Ativos</dt>
               <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.receptoresAtivos}/{curral.totalReceptores}
+                {curral.receptoresAtivos ?? "—"}/{curral.totalReceptores ?? "—"}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Intervalo entre dados</dt>
               <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.intervaloDadosMinutos} min
+                {curral.intervaloDadosMinutos == null ? "—" : `${curral.intervaloDadosMinutos} min`}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Animal em Destaque</dt>
               <dd className="mt-1 break-words text-lg leading-tight font-semibold @min-[900px]:text-2xl">
-                {curral.animalDestaqueId}
+                {curral.animalDestaqueId ?? "—"}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Coleiras Ativas</dt>
               <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {formatoNumero.format(curral.coleirasAtivas)}
+                {curral.coleirasAtivas == null ? "—" : formatoNumero.format(curral.coleirasAtivas)}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Precisão</dt>
               <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.precisaoPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                {curral.precisaoPercentual == null ? "—" : `${curral.precisaoPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
               </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs leading-snug @min-[900px]:text-base">Nome</dt>
               <dd className="mt-1 break-words text-lg leading-tight font-semibold @min-[900px]:text-2xl">
-                {curral.animalDestaqueNome}
+                {curral.animalDestaqueNome ?? "—"}
               </dd>
             </div>
           </dl>
@@ -231,7 +222,7 @@ export function ResumoCurral({
         <div className="mt-auto pt-7 @min-[780px]:pt-8">
           <div className="w-full rounded-lg border border-white/35 bg-white/20 px-3 py-3 text-xs leading-relaxed backdrop-blur-sm @min-[500px]:px-4 @min-[500px]:text-sm @min-[1100px]:max-w-[62%] @min-[1100px]:py-4">
             <span className="mr-1 font-semibold">Alerta Prioritário:</span>
-            <span>{alerta?.mensagem ?? "Nenhum alerta no momento."}</span>
+            <span>{alerta?.mensagem ?? (curral.alertas ? "Nenhum alerta no momento." : "Indisponível")}</span>
           </div>
           {erroAtualizacao && (
             <p role="alert" className="mt-2 text-xs text-white">

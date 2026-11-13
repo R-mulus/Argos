@@ -1,3 +1,4 @@
+import type { ComunicacaoReceptor } from "@argos/shared"
 import { SatelliteDish } from "lucide-react"
 import { cn } from "cn"
 
@@ -9,44 +10,42 @@ import {
 } from "@/components/ui/card"
 import {
   StatusIndicator,
-  type ReceptorStatus,
+  textoComunicacao,
 } from "@/components/custom/IndicadorStatus"
 import { SignalStrengthIndicator } from "@/components/custom/IndicadorForcaSinal"
 
-export type ReceptorResumoData = {
-  id: string
-  name: string
-  hardwareId: string
-  status: ReceptorStatus
-  rssiDbm: number | null
-  batteryPercent: number | null
-  model: string
+export type ReceptorResumoData = ComunicacaoReceptor & {
+  rssiDbm?: number | null
+  model?: string | null
+  batteryPercent?: number | null
 }
 
 type ReceptorResumoCardProps = {
-  data?: ReceptorResumoData
+  data: ReceptorResumoData
   className?: string
 }
 
 // Dados de demonstração. Futuramente serão fornecidos pela API Argos.
-const mockReceptor: ReceptorResumoData = {
+export const resumoReceptorSimulado: ReceptorResumoData = {
   id: "receptor-01",
-  name: "R01 - Curral",
-  hardwareId: "R01-3XPQ2",
-  status: "online",
+  nome: "R01 - Curral",
+  codigo: "R01-3XPQ2",
+  ultima_comunicacao_em: null,
+  status: "ativo",
+  estado_comunicacao: "recente",
   rssiDbm: -60,
   batteryPercent: 68,
   model: "ESP32 C3",
 }
 
 export function ReceptorResumoCard({
-  data = mockReceptor,
+  data,
   className,
 }: ReceptorResumoCardProps) {
-  const isOnline = data.status === "online"
+  const isOnline = data.estado_comunicacao === "recente"
   const hasCurrentReading = isOnline && data.rssiDbm !== null && Number.isFinite(data.rssiDbm)
   const rssiText = hasCurrentReading ? `${data.rssiDbm}` : "—"
-  const batteryText = data.batteryPercent === null
+  const batteryText = data.batteryPercent == null
     ? "Indisponível"
     : `${data.batteryPercent}%`
 
@@ -56,15 +55,15 @@ export function ReceptorResumoCard({
         <div className="min-w-0">
           <CardTitle className="flex min-w-0 items-center gap-1.5 text-[clamp(1rem,6cqw,1.875rem)] leading-tight font-normal @min-[340px]:gap-2 @min-[400px]:gap-3">
             <SatelliteDish aria-hidden="true" className="size-4 shrink-0 @min-[340px]:size-5 @min-[400px]:size-7" strokeWidth={2.4} />
-            <span className="min-w-0 break-words">{data.name}</span>
+            <span className="min-w-0 break-words">{data.nome ?? data.codigo}</span>
           </CardTitle>
           <p className="mt-1 break-all text-xs leading-4 text-muted-foreground @min-[340px]:text-sm @min-[400px]:text-base @min-[400px]:leading-5">
-            {data.hardwareId}
+            {data.codigo}
           </p>
         </div>
-        <span title={isOnline ? "Receptor online" : "Receptor offline"}>
+        <span title={textoComunicacao[data.estado_comunicacao]}>
           <StatusIndicator
-            status={data.status}
+            status={data.estado_comunicacao}
             size="lg"
             className="size-5 @min-[340px]:size-6 @min-[400px]:size-8"
           />
@@ -74,7 +73,7 @@ export function ReceptorResumoCard({
       <CardContent className="flex min-w-0 flex-col px-3 pt-5 pb-4 @min-[340px]:px-5 @min-[340px]:pt-7 @min-[400px]:px-7 @min-[400px]:pt-10 @min-[400px]:pb-7">
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 @min-[340px]:gap-x-5 @min-[400px]:gap-x-6 @min-[400px]:gap-y-4">
           <SignalStrengthIndicator
-            rssiDbm={data.rssiDbm}
+            rssiDbm={data.rssiDbm ?? null}
             isOnline={isOnline}
           />
           <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-card-foreground">
@@ -86,7 +85,7 @@ export function ReceptorResumoCard({
         <dl className="mt-5 space-y-1 text-xs leading-5 @min-[340px]:mt-6 @min-[340px]:text-sm @min-[400px]:mt-8 @min-[400px]:space-y-[7px] @min-[400px]:text-base @min-[400px]:leading-[23px]">
           <div className="flex flex-wrap gap-x-1">
             <dt className="font-bold">Status:</dt>
-            <dd>{isOnline ? "Online" : "Offline"}</dd>
+            <dd>{textoComunicacao[data.estado_comunicacao]}</dd>
           </div>
           <div className="flex flex-wrap gap-x-1">
             <dt className="font-bold">Bateria:</dt>
@@ -94,7 +93,7 @@ export function ReceptorResumoCard({
           </div>
           <div className="flex flex-wrap gap-x-1">
             <dt className="font-bold">Modelo:</dt>
-            <dd className="break-words">{data.model}</dd>
+            <dd className="break-words">{data.model ?? "—"}</dd>
           </div>
         </dl>
       </CardContent>

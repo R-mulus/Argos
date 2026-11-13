@@ -1,6 +1,13 @@
+import type { ComunicacaoReceptor } from "@argos/shared"
 import { cn } from "cn"
 
-export type ReceptorStatus = "online" | "offline"
+export type ReceptorStatus = ComunicacaoReceptor["estado_comunicacao"]
+
+export const textoComunicacao: Record<ReceptorStatus, string> = {
+  recente: "Comunicação recente",
+  sem_leitura_recente: "Sem leitura recente",
+  aguardando_primeira_leitura: "Aguardando primeira leitura",
+}
 
 type StatusIndicatorProps = {
   status: ReceptorStatus
@@ -16,7 +23,7 @@ export function StatusIndicator({
   withHalo = false,
   size = "sm",
 }: StatusIndicatorProps) {
-  const isOnline = status === "online"
+  const isOnline = status === "recente"
   const dotColor = isOnline ? "bg-emerald-600" : "bg-zinc-400"
   const large = size === "lg"
 

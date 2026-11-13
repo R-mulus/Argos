@@ -1,3 +1,4 @@
+import type { DeteccaoHistorico } from "@argos/shared";
 import { useId, useMemo, useState } from "react";
 import {
 	createColumnHelper,
@@ -62,7 +63,7 @@ export type RegistroLeitura = {
 	nomeArea: string;
 	animalId: string;
 	/** ISO 8601; a API deve indicar o fuso horário corretamente. */
-	dataHora: string;
+	dataHora: string | null;
 	categoria: string;
 	/** Confiança da classificação de comportamento: de 0 a 100. */
 	precisaoPercentual: number | null;
@@ -72,10 +73,27 @@ export type RegistroLeitura = {
 	bateriaPercentual: number | null;
 };
 
+export function registroDeDeteccao(leitura: DeteccaoHistorico): RegistroLeitura {
+	return {
+		id: leitura.id,
+		areaId: leitura.zona_id ?? "—",
+		nomeArea: leitura.zona_nome ?? "Sem zona",
+		animalId: leitura.animal_id ?? "—",
+		dataHora: leitura.instante_referencia,
+		categoria: "—",
+		precisaoPercentual: null,
+		sexo: leitura.animal_sexo === "macho" ? "Macho" : leitura.animal_sexo === "femea" ? "Fêmea" : "Não informado",
+		receptor: leitura.receptor_codigo,
+		rssiDbm: leitura.rssi_dbm,
+		bateriaPercentual: leitura.bateria_percentual,
+	};
+}
+
 type HistoricoLeituraProps = {
-	dados?: RegistroLeitura[];
+	/** Conjunto carregado pela página. Os filtros e a paginação são locais. */
+	dados: RegistroLeitura[];
 	className?: string;
-	/** Habilita exportação de dados filtrados e ordenados. Padrão: true. */
+	/** Habilita exportação de dados filtrados e ordenados. Habilitar quando os dados fornecidos estiverem completos. */
 	permitirExportacao?: boolean;
 };
 
@@ -106,12 +124,13 @@ export const leiturasSimuladas: RegistroLeitura[] = Array.from({ length: 34 }, (
 	};
 });
 
-function lerData(dataHora: string): Date | null {
+function lerData(dataHora: string | null): Date | null {
+	if (!dataHora) return null;
 	const data = parseISO(dataHora);
 	return isValid(data) ? data : null;
 }
 
-function exibirData(dataHora: string, mascara: string) {
+function exibirData(dataHora: string | null, mascara: string) {
 	const data = lerData(dataHora);
 	return data ? format(data, mascara, { locale: ptBR }) : "—";
 }
@@ -253,9 +272,9 @@ async function exportarXLSX(registros: RegistroLeitura[]) {
 }
 
 export function HistoricoLeitura({
-	dados = leiturasSimuladas,
+	dados,
 	className,
-	permitirExportacao = true,
+	permitirExportacao = false,
 }: HistoricoLeituraProps) {
 	const identificador = useId();
 	const [animal, setAnimal] = useState("");
@@ -571,7 +590,7 @@ export function HistoricoLeitura({
 				)}
 				<div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground @min-[700px]:text-sm">
 					<span aria-live="polite">
-						Exibindo {inicio}–{fim} de {totalFiltrado} registros
+						Exibindo {inicio}–{fim} de {totalFiltrado} registros carregados
 					</span>
 					<div className="flex items-center gap-2">
 						<Label className="whitespace-nowrap text-xs">Por página</Label>
