@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
+import { prazoRetencao } from '../src/models/retencao.model.js';
 import test from 'node:test';
 import { filtrosDeteccoes } from '../src/models/deteccao.model.js';
 import { deteccoesCsv } from '../src/lib/csv.js';
 import type { DeteccaoHistorico } from '@argos/shared';
+
+test('prévia de retenção exige prazo explícito e rejeita filtros de outra propriedade', () => {
+  assert.equal(prazoRetencao({ dias: '90' }), 90);
+  assert.equal(prazoRetencao({ dias: '3650' }), 3650);
+  for (const query of [{}, { dias: '0' }, { dias: '-1' }, { dias: '3651' },
+    { dias: ['90'] }, { dias: '1.5' }, { dias: '90', propriedade_id: 'outra' }]) {
+    assert.throws(() => prazoRetencao(query));
+  }
+});
 
 test('CSV preserva números, escapa texto e protege fórmulas de cadastro', () => {
   const csv = deteccoesCsv([{

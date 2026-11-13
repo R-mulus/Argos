@@ -7,6 +7,7 @@ import { createApp } from '../../src/app.js';
 import type { ComunicacaoReceptor, HistoricoPesagens, ResumoMonitoramento } from '@argos/shared';
 import 'dotenv/config';
 import type { Alerta } from '@argos/shared';
+import type { PreviaRetencao } from '@argos/shared';
 import { FilaDeteccoes } from '../../src/mqtt/fila.js';
 import { sincronizarLote } from '../../src/mqtt/sincronizacao.js';
 import { processarDeteccao } from '../../src/mqtt/processor.js';
@@ -224,4 +225,43 @@ test('resumo reconcilia receptores e isola propriedades', async t => {
   assert.equal(retomada.data.filter(a => a.tipo === 'sincronizacao_concluida').length, 1);
   assert.equal((await avisos(outra.token)).count, 0);
   assert.deepEqual(fila.avisosPendentes(), []);
+
+  const antes = await admin.from('deteccoes').select('id', { count: 'exact', head: true })
+    .eq('propriedade_id', fazenda.id);
+  assert.ifError(antes.error);
+  const somenteAntigas = await coleira('Histórico antigo');
+  const antigoEm = (dias: number) => new Date(Date.now() - dias * 86400000).toISOString();
+  for (const [vinculo, dias] of [[somenteAntigas, 200], [somenteAntigas, 100], [a, 100]] as const) {
+    await novo('deteccoes', { ...vinculo, receptor_id: r1, evento_id: randomUUID(),
+      rssi_dbm: -70, recebido_em: antigoEm(dias), recebido_no_gateway_em: antigoEm(dias) });
+  }
+  async function previa(dias: number, token = fazenda.token) {
+    const resposta = await fetch(new URL('/api/deteccoes/retencao?dias=' + dias, endpoint), {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    assert.equal(resposta.status, 200);
+    return (await resposta.json() as { data: PreviaRetencao }).data;
+  }
+  const noventa = await previa(90);
+  assert.equal(noventa.total, antes.count! + 3);
+  assert.equal(noventa.elegiveis, 3);
+  assert.equal(noventa.preservadas, antes.count);
+  assert.equal(noventa.animais_sem_historico_apos_corte, 1);
+  const centoOitenta = await previa(180);
+  assert.equal(centoOitenta.elegiveis, 1);
+  assert.equal(centoOitenta.animais_sem_historico_apos_corte, 0);
+  await novo('deteccoes', { ...somenteAntigas, receptor_id: r1, evento_id: randomUUID(),
+    rssi_dbm: -70, detectado_em: antigoEm(200) });
+  const atrasada = await previa(90);
+  assert.equal(atrasada.elegiveis, 3);
+  assert.equal(atrasada.animais_sem_historico_apos_corte, 0);
+  const depois = await admin.from('deteccoes').select('id', { count: 'exact', head: true })
+    .eq('propriedade_id', fazenda.id);
+  assert.ifError(depois.error);
+  assert.equal(depois.count, atrasada.total);
+  assert.equal((await previa(90, outra.token)).total, 0);
+  const externoRetencao = await db.rpc('previa_retencao', { p_propriedade: fazenda.id, p_dias: 90 });
+  assert.ifError(externoRetencao.error);
+  assert.equal(externoRetencao.data.total, 0);
+  assert.ok((await db.rpc('previa_retencao', { p_propriedade: outra.id, p_dias: 0 })).error);
 });

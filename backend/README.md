@@ -320,3 +320,11 @@ O worker registra um lote local por propriedade quando observa uma falha no envi
 Os lotes e o envio do aviso ficam no mesmo arquivo SQLite da fila e sobrevivem a reinícios. Se a resposta do Supabase se perder, o identificador do lote evita criar outro aviso ou reabrir o original. Uma nova interrupção após a conclusão cria um novo lote. A contagem de confirmadas inclui eventos já existentes no Supabase cujo replay foi reconhecido.
 
 O aviso indica uma interrupção de sincronização observada pelo worker, que também pode decorrer de indisponibilidade do banco ou falha de credenciais. Seu início corresponde à primeira tentativa que falhou. O aviso chega à central após a recuperação; o terminal continua mostrando as pendências durante a interrupção. Fluxos sem falha observada seguem sem aviso de retomada. O histórico de propriedades desconhecidas permanece somente no log local.
+
+## Prévia de retenção das detecções
+
+`GET /api/deteccoes/retencao?dias=90` exige JWT do produtor e informa o impacto do prazo escolhido na própria propriedade. O parâmetro `dias` é obrigatório e aceita inteiros de 1 a 3650. A resposta é `{ data: PreviaRetencao }`, com total de leituras, elegíveis pelo corte, preservadas, horário do cálculo e quantidade de animais que ficariam sem nenhuma leitura vinculada.
+
+A simulação conta blocos de 24 horas desde `recebido_em`, a chegada ao PostgreSQL. Uma leitura é elegível quando chegou antes do corte, estritamente. Essa referência preserva leituras recém-sincronizadas mesmo se a detecção ocorreu há muito tempo. As datas da medição e de chegada ao gateway continuam disponíveis no histórico.
+
+O prazo de referência aprovado em 13/11/2026 é de **90 dias** para as detecções brutas. A consulta permite comparar outros prazos. A etapa de limpeza precisa contemplar os dados necessários para o ML e a preservação de relatórios e última posição conhecida. A prévia realiza somente consultas. A fila SQLite conserva os eventos e os lotes locais segundo o comportamento atual. Automação de exclusão, consolidação de relatórios vitalícios e limpeza local são etapas futuras.
