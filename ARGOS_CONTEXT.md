@@ -22,8 +22,8 @@
 **Argos** é uma aplicação web (dashboard responsivo) para **monitoramento de rebanhos bovinos** usando IoT + Machine Learning.
 
 - Microcontroladores **ESP32 nano** atuam como **localizadores/transmissores** (acoplados ao animal) e como **receptores** (instalados em pontos da fazenda, como bebedouros, currais e áreas de descanso).
-- Os receptores detectam os transmissores, medem a **intensidade do sinal (RSSI)** e enviam as detecções para a **API Argos**.
-- O sistema determina em qual **zona de interesse** cada animal está, conta automaticamente as cabeças do rebanho, guarda o histórico de movimentação e aplica **Machine Learning** (modelo GRU) para identificar padrões comportamentais.
+- Os receptores detectam os transmissores, medem a **intensidade do sinal (RSSI)** e publicam as detecções via **MQTT** para o worker do backend.
+- O sistema determina em qual **zona de interesse** cada animal está, conta automaticamente as cabeças do rebanho, guarda o histórico de movimentação e prevê aplicar **Machine Learning** (modelo GRU) para identificar padrões comportamentais.
 
 **Objetivo (TAP - Termo de Abertura do Projeto):** desenvolver uma aplicação que monitore, identifique e contabilize os animais do rebanho e identifique a posição de cada animal.
 
@@ -75,7 +75,7 @@
 | Gerenciador de pacotes | **pnpm** |
 | Design / Gestão / Versionamento / IDE | Figma / Trello / GitHub / VS Code |
 
-> A "API Argos" que recebe as detecções dos receptores é o **backend Express**.
+> O backend tem dois processos. O worker recebe as detecções via MQTT e a API Express atende às requisições HTTP do dashboard.
 
 ### 4.1 Estrutura do repositório (monorepo)
 
@@ -112,25 +112,16 @@ Iniciar servidores: no VS Code, `Ctrl+Shift+P` → "Executar Tarefa"/"Run Task" 
 ## 5. Arquitetura lógica
 
 ```
-[ESP32 nano transmissor]  --(sinal sem fio)-->  [ESP32 nano receptor]
-   (1 por animal)                                (por zona: curral, bebedouro...)
-                                                        |
-                                           (Wi-Fi/internet, HTTPS, buffer local)
-                                                        v
-                                                  [API Argos]
-                                                        |
-                                                        v
-                                         [Supabase / PostgreSQL]
-                                              |               |
-                                              v               v
-                                  [Dashboard React/TS]   [Pipeline ML (Python/TF/GRU)]
+ESP32 transmissor → ESP32 receptor → EMQX (MQTT v1, QoS 1)
+                                       ↓
+                                  worker MQTT → SQLite local → Supabase PostgreSQL
+                                                                       ↑
+Dashboard → login no Supabase Auth → requisições com JWT → API Express ─┘
 ```
 
-Pontos-chave:
-- A posição é **aproximada, por zona**, calculada a partir do **RSSI** reportado pelo receptor — não é geolocalização exata.
-- Se o animal sai da cobertura de todos os receptores: exibir **última zona conhecida** + status **"Fora de alcance"** até nova detecção.
-- Receptores sem internet **armazenam localmente** os pacotes e enviam **em bloco** na reconexão (RN03 / abordagem offline-first).
-- O dashboard em instabilidade mostra **dados em cache** com indicador "dados desatualizados/modo offline".
+O gateway persiste a detecção antes de confirmar o recebimento ao broker. Com a rede local ativa, a fila aceita leituras durante uma queda de internet e sincroniza quando o Supabase volta a responder. O funcionamento com o receptor desconectado do broker depende do firmware. As consultas autenticadas do dashboard precisam de acesso ao Supabase.
+
+Para exibir a posição, use o resumo da API. A janela de disputa entre receptores é de 2 segundos e a de recência é de 5 minutos. Após esse prazo, a última zona conhecida pode ser exibida como desatualizada. O contrato de integração e o ensaio reproduzível estão no [guia do backend](backend/README.md).
 
 ---
 
