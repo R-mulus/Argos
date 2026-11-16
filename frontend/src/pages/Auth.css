@@ -36,77 +36,21 @@
 	color: var(--auth-texto-claro);
 }
 
-.auth-identidade {
-	position: relative;
-	z-index: 2;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.auth-simbolo {
-	width: 43px;
-	height: 34px;
-	object-fit: contain;
-}
-
-.auth-produto {
-	display: flex;
-	min-width: 0;
-	flex-direction: column;
-	gap: 3px;
-}
-
-.auth-produto img {
-	width: 85px;
-	height: 28px;
-}
-
-.auth-produto span {
-	font-size: 0.625rem;
-	font-weight: 500;
-	letter-spacing: 0.11em;
-	line-height: 1.25;
-	text-transform: uppercase;
-	opacity: 0.72;
-}
-
-.auth-mensagem {
-	position: relative;
-	z-index: 2;
-	max-width: 470px;
-	margin-top: 30px;
-}
-
-.auth-mensagem h2 {
-	max-width: 390px;
-	font-size: clamp(1.75rem, 8vw, 2.15rem);
-	font-weight: 600;
-	letter-spacing: -0.025em;
-	line-height: 1.07;
-}
-
-.auth-mensagem h2 span {
-	color: var(--auth-laranja);
-}
-
-.auth-mensagem p {
-	display: none;
-	max-width: 410px;
-	margin-top: 18px;
-	font-size: 1rem;
-	line-height: 1.55;
-	opacity: 0.76;
-}
-
-.auth-marca-dagua {
+.auth-foto {
 	position: absolute;
-	right: -46px;
-	bottom: -45px;
-	width: 205px;
-	height: auto;
-	opacity: 0.055;
-	transform: rotate(-8deg);
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: 65% center;
+}
+
+.auth-institucional::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(to right, rgb(0 0 0 / 0.6), rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.15));
+	pointer-events: none;
 }
 
 .auth-area {
@@ -316,15 +260,11 @@
 	text-align: center;
 }
 
-.auth-entrada-identidade,
-.auth-entrada-mensagem,
 .auth-entrada-card,
 .auth-entrada-campo {
 	animation: auth-subir 520ms var(--auth-curva) both;
 }
 
-.auth-entrada-identidade { animation-delay: 520ms; }
-.auth-entrada-mensagem { animation-delay: 610ms; }
 .auth-entrada-card { animation-delay: 700ms; }
 .auth-entrada-campo:nth-child(1) { animation-delay: 800ms; }
 .auth-entrada-campo:nth-child(2) { animation-delay: 860ms; }
@@ -357,8 +297,6 @@
 		padding-inline: 42px;
 	}
 
-	.auth-mensagem p { display: block; }
-
 	.auth-area {
 		min-height: calc(100dvh - 270px);
 		padding: 42px;
@@ -388,23 +326,6 @@
 		padding: clamp(42px, 6vh, 64px) clamp(42px, 5vw, 76px) clamp(44px, 6vh, 68px);
 	}
 
-	.auth-simbolo { width: 52px; height: 39px; }
-	.auth-mensagem { margin-top: 70px; }
-
-	.auth-mensagem h2 {
-		font-size: clamp(2.5rem, 4vw, 3.35rem);
-		line-height: 1.04;
-	}
-
-	.auth-mensagem p { font-size: 1.0625rem; }
-
-	.auth-marca-dagua {
-		right: -130px;
-		bottom: 18%;
-		width: min(31vw, 460px);
-		opacity: 0.045;
-	}
-
 	.auth-area {
 		min-height: 100dvh;
 		justify-content: center;
@@ -432,8 +353,6 @@
 @media (prefers-reduced-motion: reduce) {
 	.auth-abertura { display: none; }
 
-	.auth-entrada-identidade,
-	.auth-entrada-mensagem,
 	.auth-entrada-card,
 	.auth-entrada-campo,
 	.auth-carregando {

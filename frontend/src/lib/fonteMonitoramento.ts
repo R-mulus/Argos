@@ -1,4 +1,5 @@
 import type { Alerta, ComunicacaoReceptor, DeteccaoHistorico, HistoricoPesagens, Pesagem, ResumoMonitoramento } from "@argos/shared";
+import { lerCsv, type LeituraAnimal } from "@/lib/historico";
 import { baixarDaApi, consultarApi, enviarApi } from "@/lib/sessao";
 
 export type Pagina<T> = { data: T[]; count: number; limit: number; offset: number };
@@ -37,6 +38,11 @@ export interface FonteMonitoramento {
 	historico(filtro: FiltroHistorico, offset: number, signal: AbortSignal): Promise<Pagina<DeteccaoHistorico>>;
 	/** CSV completo do filtro, gerado pelo servidor em uma única consulta. */
 	exportarHistorico(filtro: FiltroHistorico): Promise<Blob>;
+	/**
+	 * Animal e instante de todas as leituras em [inicio, fim), de todas as zonas. Usa a exportação do
+	 * servidor, que devolve o período inteiro numa consulta; serve à contagem de cabeças por mês.
+	 */
+	leiturasPorAnimal(inicio: string, fim: string, signal: AbortSignal): Promise<LeituraAnimal[]>;
 	/** Central de avisos: página filtrada por estado (`null` = todos), da criação mais recente à mais antiga. */
 	alertas(estado: EstadoAlerta | null, offset: number, limite: number, signal: AbortSignal): Promise<Pagina<Alerta>>;
 	/** Marca um aviso como lido ou resolvido; o banco preenche as datas. */
@@ -63,6 +69,10 @@ export const fonteApi: FonteMonitoramento = {
 	historico: ({ zonaId, inicio, fim }, offset, signal) =>
 		consultarApi<Pagina<DeteccaoHistorico>>(`/deteccoes?${parametros({ zona_id: zonaId, inicio, fim, limit: "100", offset: String(offset) })}`, signal),
 	exportarHistorico: ({ zonaId, inicio, fim }) => baixarDaApi(`/deteccoes/exportar?${parametros({ zona_id: zonaId, inicio, fim })}`),
+	leiturasPorAnimal: async (inicio, fim, signal) => {
+		const csv = await (await baixarDaApi(`/deteccoes/exportar?${parametros({ inicio, fim })}`, signal)).text();
+		return lerCsv(csv).flatMap(l => (l.animal_id && l.instante_referencia ? [{ animalId: l.animal_id, instante: l.instante_referencia }] : []));
+	},
 	alertas: (estado, offset, limite, signal) =>
 		consultarApi<Pagina<Alerta>>(`/alertas?${parametros({ ...(estado ? { estado } : {}), limit: String(limite), offset: String(offset) })}`, signal),
 	atualizarAlerta: async (id, estado) => (await enviarApi<{ data: Alerta }>(`/alertas/${encodeURIComponent(id)}`, "PATCH", { estado })).data,

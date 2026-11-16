@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useSearchParams } from "react-router";
 import { AnaliseGeral } from "@/components/custom/AnaliseGeral";
-import { AnimaisSemDeteccao, type RegistroSemDeteccao } from "@/components/custom/AnimaisSemDeteccao";
+import { AnimaisSemDeteccao } from "@/components/custom/AnimaisSemDeteccao";
 import { AnimalDestaque } from "@/components/custom/AnimalDestaque";
 import { CabecalhoZona } from "@/components/custom/CabecalhoZona";
 import { DistribuicaoComportamento } from "@/components/custom/DistribuicaoComportamento";
@@ -15,14 +15,8 @@ import { SeloSimulado } from "@/components/custom/SeloSimulado";
 import { Card } from "@/components/ui/card";
 import { useAgora, usePeriodo, useZonaMonitorada } from "@/hooks/useMonitoramento";
 import { fonteDemonstracao, type CenarioDemonstracao } from "@/lib/demonstracaoMonitoramento";
-import { baixarBlob, buscarHistoricoCompleto } from "@/lib/historico";
+import { baixarBlob, buscarHistoricoCompleto, metricasReceptor, serieSemDeteccao } from "@/lib/historico";
 import { chaveMonitoramento, fonteApi, type FiltroHistorico } from "@/lib/fonteMonitoramento";
-
-// Série de exemplo no formato do Figma: não há histórico de animais sem detecção na API.
-const serieSimulada: RegistroSemDeteccao[] = [
-  ["06:00", 37, 50], ["06:30", 70, 30], ["07:00", 71, 79], ["07:30", 61, 69], ["08:00", 55, 47],
-  ["08:30", 33, 20], ["09:00", 52, 43], ["09:30", 67, 50], ["10:00", 43, 34],
-].map(([horario, anterior, atual]) => ({ horario: String(horario), anterior: Number(anterior), atual: Number(atual) }));
 
 /** Tela Animais: visão de uma zona escolhida no título (`?zona=<id>`). */
 export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDemonstracao }) {
@@ -54,6 +48,32 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
     placeholderData: keepPreviousData,
     queryFn: ({ signal }) => buscarHistoricoCompleto(fonte, filtro!, signal),
   });
+
+  // Período anterior, de mesma duração, para a série comparativa de animais sem detecção.
+  const duracao = inicio && fimExclusivo ? fimExclusivo.getTime() - inicio.getTime() : 0;
+  const filtroAnterior: FiltroHistorico | null = filtro ? { ...filtro, inicio: new Date(inicio!.getTime() - duracao).toISOString(), fim: filtro.inicio } : null;
+  const historicoAnterior = useQuery({
+    queryKey: chaveMonitoramento(origem, "historico", filtroAnterior?.zonaId ?? "", filtroAnterior?.inicio ?? "", filtroAnterior?.fim ?? ""),
+    enabled: Boolean(filtroAnterior),
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => buscarHistoricoCompleto(fonte, filtroAnterior!, signal),
+  });
+
+  const intervaloMinutos = useMemo(
+    () => (historico.data && fimExclusivo ? metricasReceptor(historico.data.linhas, historico.data.total, fimExclusivo.getTime()).intervaloMinutos : null),
+    [historico.data, fimExclusivo],
+  );
+  const serie = useMemo(
+    () => (historico.data && historicoAnterior.data && inicio && fimExclusivo
+      ? serieSemDeteccao(historico.data, historicoAnterior.data, inicio.getTime(), fimExclusivo.getTime(), agora)
+      : null),
+    [historico.data, historicoAnterior.data, inicio, fimExclusivo, agora],
+  );
+  const parcial = (historico.data && historico.data.linhas.length < historico.data.total) || (historicoAnterior.data && historicoAnterior.data.linhas.length < historicoAnterior.data.total);
+  const notaSerie = !filtro ? "Selecione a data inicial e a final para calcular a série."
+    : historico.isError || historicoAnterior.isError ? "Não foi possível carregar o histórico da zona para a série."
+    : serie && serie.every(p => p.atual == null && p.anterior == null) ? "Sem leituras na zona nos dois períodos."
+    : `Percentual dos animais detectados na zona em cada período que não foram detectados nela em cada ${duracao <= 86_400_000 ? "faixa de 2 h" : "dia"}.${parcial ? " Histórico cortado no limite de leituras: os intervalos mais antigos ficam sem valor." : ""}`;
 
   const semDeteccao = zona ? (() => {
     const antigos = animaisDaZona.filter(a => a.estado === "desatualizado" && a.ultima_deteccao_em);
@@ -88,6 +108,7 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
           receptoresAtivos={indicadores?.receptoresAtivos ?? null}
           totalReceptores={indicadores?.totalReceptores ?? null}
           coleirasAtivas={indicadores?.coleirasAtivas ?? null}
+          intervaloMinutos={intervaloMinutos}
           animalDestaqueId={posicaoDestaque?.identificacao}
           atualizadoEm={dadosResumo.atualizado_em}
           alertas={alertasZona}
@@ -122,7 +143,7 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
             />
             {destaque.isError && <p role="alert" className="mt-2 text-sm text-destructive">Cadastro do animal indisponível: {destaque.error.message}</p>}
           </div>
-          <AnimaisSemDeteccao dados={semDeteccao} serie={serieSimulada} serieSimulada />
+          <AnimaisSemDeteccao dados={semDeteccao} serie={filtro && !historico.isError && !historicoAnterior.isError ? serie : []} nota={notaSerie} />
         </section>
 
         <Secao titulo="Análise Geral" id="mapa" className="mt-12 lg:mt-[78px]">

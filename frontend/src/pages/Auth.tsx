@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/sessao";
+import imagemLogin from "@/assets/vacas-login.jpg";
 import "./Auth.css";
 
 const caminhoLogo = `${import.meta.env.BASE_URL}logo.svg`;
-const caminhoNomeArgos = `${import.meta.env.BASE_URL}argos.svg`;
 
 export default function Auth() {
 	const [erro, setErro] = useState("");
@@ -58,24 +58,9 @@ export default function Auth() {
 				<img src={caminhoLogo} alt="" />
 			</div>
 
-			<section className="auth-institucional" aria-label="Argos">
-				<img className="auth-marca-dagua" src={caminhoLogo} alt="" aria-hidden="true" />
-
-				<div className="auth-identidade auth-entrada-identidade">
-					<img className="auth-simbolo" src={caminhoLogo} alt="" />
-					<span className="auth-produto">
-						<img src={caminhoNomeArgos} alt="Argos" />
-						<span>Monitoramento inteligente de rebanhos</span>
-					</span>
-				</div>
-
-				<div className="auth-mensagem auth-entrada-mensagem">
-					<h2>
-						Seu rebanho, sob uma <span>nova perspectiva.</span>
-					</h2>
-					<p>Acompanhe animais, zonas de detecção e históricos de monitoramento em um só lugar.</p>
-				</div>
-			</section>
+			<div className="auth-institucional" aria-hidden="true">
+				<img className="auth-foto" src={imagemLogin} alt="" fetchPriority="high" />
+			</div>
 
 			<section className="auth-area" aria-labelledby="auth-titulo">
 				<div className="auth-card auth-entrada-card">

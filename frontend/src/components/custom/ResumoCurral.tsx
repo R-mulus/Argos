@@ -20,7 +20,8 @@ export interface DadosResumoCurral {
   receptoresAtivos: number
   totalReceptores: number
   coleirasAtivas: number
-  intervaloDadosMinutos: number
+  /** Intervalo médio entre leituras; `null` sem leituras suficientes. */
+  intervaloDadosMinutos: number | null
   precisaoPercentual: number
   animalDestaqueId: string
   animalDestaqueNome: string
@@ -67,6 +68,15 @@ const ordemPrioridade: Record<PrioridadeAlerta, number> = {
 }
 
 const formatoNumero = new Intl.NumberFormat("pt-BR")
+
+function formatarIntervalo(minutos: number | null | undefined): string {
+  if (minutos == null) return "—"
+  if (minutos < 1) return "< 1 min"
+  if (minutos < 60) return `${Math.round(minutos)} min`
+  const horas = Math.floor(minutos / 60)
+  const resto = Math.round(minutos % 60)
+  return resto ? `${horas} h ${resto} min` : `${horas} h`
+}
 
 function formatarUltimaAtualizacao(valor: string): string {
   const data = new Date(valor)
@@ -179,7 +189,7 @@ export function ResumoCurral({
           </div>
           {[
             ["Receptores Ativos", `${curral.receptoresAtivos ?? "—"}/${curral.totalReceptores ?? "—"}`],
-            ["Intervalo entre dados", curral.intervaloDadosMinutos == null ? "—" : `${curral.intervaloDadosMinutos} min`],
+            ["Intervalo entre dados", formatarIntervalo(curral.intervaloDadosMinutos)],
             ["Animal em Destaque", curral.animalDestaqueId ?? "—"],
             ["Coleiras Ativas", curral.coleirasAtivas == null ? "—" : formatoNumero.format(curral.coleirasAtivas)],
             ["Precisão", curral.precisaoPercentual == null ? "—" : `${curral.precisaoPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`],

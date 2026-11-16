@@ -153,7 +153,7 @@ export function QuantidadeCabecas({
       </CardHeader>
 
       <CardContent className="min-w-0 px-3 @min-[500px]:px-6">
-        <div className="grid min-w-0 grid-cols-1 items-center gap-3 @min-[700px]:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] @min-[700px]:gap-6">
+        <div className="grid min-w-0 grid-cols-1 items-center gap-3 @min-[560px]:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] @min-[560px]:gap-6">
           <div
             role="region"
             aria-label={`Distribuição de ${formatarQuantidade(total)} animais entre ${setores.length} setores`}
@@ -162,7 +162,7 @@ export function QuantidadeCabecas({
             {total > 0 ? (
               <ChartContainer
                 config={configuracaoGrafico}
-                className="aspect-square! h-[220px] w-[220px] shrink-0 @min-[340px]:h-[255px] @min-[340px]:w-[255px] @min-[430px]:h-[300px] @min-[430px]:w-[300px] @min-[700px]:h-[320px] @min-[700px]:w-[320px]"
+                className="aspect-square! h-[220px] w-[220px] shrink-0 @min-[340px]:h-[255px] @min-[340px]:w-[255px] @min-[430px]:h-[300px] @min-[430px]:w-[300px] @min-[560px]:h-[240px] @min-[560px]:w-[240px] @min-[760px]:h-[300px] @min-[760px]:w-[300px]"
               >
                 <PieChart margin={{ top: 18, right: 18, bottom: 18, left: 18 }}>
                   <Pie
@@ -207,13 +207,13 @@ export function QuantidadeCabecas({
                 </PieChart>
               </ChartContainer>
             ) : (
-              <div className="flex size-[220px] items-center justify-center rounded-full border border-dashed border-border text-center text-xs text-muted-foreground @min-[430px]:size-[300px]">
+              <div className="flex size-[220px] items-center justify-center rounded-full border border-dashed border-border text-center text-xs text-muted-foreground @min-[430px]:size-[300px] @min-[560px]:size-[240px] @min-[760px]:size-[300px]">
                 Nenhum animal contabilizado
               </div>
             )}
           </div>
 
-          <div className="min-w-0 pb-2 @min-[700px]:pb-0">
+          <div className="min-w-0 pb-2 @min-[560px]:pb-0">
             <div className="flex items-center gap-3">
               <strong className="min-w-0 text-[clamp(2.25rem,10cqw,3.75rem)] leading-none font-normal tracking-tight tabular-nums">
                 {formatarQuantidade(total)}

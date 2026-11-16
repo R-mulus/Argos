@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { addDays, differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, format, startOfDay, startOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AnimalDestaque } from "@/components/custom/AnimalDestaque";
 import { CartaoZona } from "@/components/custom/CartaoZona";
 import { AvisoAntigo, EstadoBloco, Secao } from "@/components/custom/EstadoConsulta";
-import { ContabilizacaoCabecasMes, type RegistroMensalCabecas } from "@/components/custom/ContabilizacaoCabecasMes";
+import { ContabilizacaoCabecasMes } from "@/components/custom/ContabilizacaoCabecasMes";
 import { DadosProcessadosDia } from "@/components/custom/DadosProcessadosDia";
 import { MediaMovimentacao } from "@/components/custom/MediaMovimentacao";
 import { QuantidadeCabecas } from "@/components/custom/QuantidadeCabecas";
@@ -18,17 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fonteDemonstracao, type CenarioDemonstracao } from "@/lib/demonstracaoMonitoramento";
 import { chaveMonitoramento, fonteApi } from "@/lib/fonteMonitoramento";
+import { cabecasPorMes } from "@/lib/historico";
 import { ATUALIZACAO_MS, RECENCIA_MS, escolherDestaque, indicadoresZona, intervaloDoPeriodo } from "@/lib/monitoramento";
 
 const RECEPTORES_POR_PAGINA = 4;
 
-// Série mensal de exemplo (Jan–Out, como no Figma). Não há endpoint de histórico mensal nem meta "ideal".
-const mesesSimulados: RegistroMensalCabecas[] = [
-  { mes: "Jan", real: 860, ideal: 740 }, { mes: "Fev", real: 300, ideal: 90 }, { mes: "Mar", real: 510, ideal: 450 },
-  { mes: "Abr", real: 250, ideal: 380 }, { mes: "Mai", real: 235, ideal: 500 }, { mes: "Jun", real: 660, ideal: 800 },
-  { mes: "Jul", real: 390, ideal: 420 }, { mes: "Ago", real: 605, ideal: 520 }, { mes: "Set", real: 285, ideal: 790 },
-  { mes: "Out", real: 530, ideal: 785 },
-];
+// Meses exibidos no gráfico de cabeças, incluindo o atual.
+const MESES_CABECAS = 6;
 
 export default function Monitoramento({ demonstracao }: { demonstracao?: CenarioDemonstracao }) {
   const fonte = useMemo(() => (demonstracao ? fonteDemonstracao(demonstracao) : fonteApi), [demonstracao]);
@@ -64,6 +61,23 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
         fonte.contarLeituras(inicio!.toISOString(), fimExclusivo!.toISOString(), signal),
       ]);
       return { deHoje, mediaDiaria: Math.round((doPeriodo / dias) * 10) / 10 };
+    },
+  });
+
+  // Animais distintos detectados por mês, calculados das leituras do período inteiro.
+  const inicioMeses = startOfMonth(addMonths(new Date(agora), -(MESES_CABECAS - 1)));
+  const fimMeses = startOfMonth(addMonths(new Date(agora), 1));
+  const cabecas = useQuery({
+    queryKey: chaveMonitoramento(origem, "cabecas-mes", inicioMeses.toISOString(), fimMeses.toISOString()),
+    placeholderData: keepPreviousData,
+    staleTime: 10 * 60_000,
+    refetchInterval: 10 * 60_000,
+    queryFn: async ({ signal }) => {
+      const leituras = await fonte.leiturasPorAnimal(inicioMeses.toISOString(), fimMeses.toISOString(), signal);
+      return cabecasPorMes(leituras, inicioMeses, fimMeses).map(({ inicio, quantidade }) => {
+        const mes = format(inicio, "MMM", { locale: ptBR });
+        return { mes: mes.charAt(0).toUpperCase() + mes.slice(1, 3), real: quantidade };
+      });
     },
   });
 
@@ -199,19 +213,29 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
       </Secao>
 
       <Secao titulo="Análise Geral" id="graficos" className="mt-12 lg:mt-[75px]">
-        <div className="grid min-w-0 items-stretch gap-5 xl:grid-cols-[1034fr_725fr] xl:gap-[26px]">
-          <div className="relative min-w-0 xl:min-h-[420px]">
-            <ContabilizacaoCabecasMes dados={mesesSimulados} className="h-full" />
-            <SeloSimulado className="absolute right-3 bottom-1.5" descricao="Não há histórico mensal nem meta ideal na API; série de exemplo." />
+        <AvisoAntigo consultas={[cabecas]} agora={agora} />
+        {/* Barras e rosca lado a lado, com a mesma altura; a linha de movimentação ocupa a largura toda. */}
+        <div className="grid min-w-0 items-stretch gap-5 xl:grid-cols-2 xl:gap-[26px]">
+          <div className="flex min-w-0">
+            {cabecas.data?.length ? (
+              <ContabilizacaoCabecasMes
+                dados={cabecas.data}
+                rotulos={{ real: "Cabeças detectadas" }}
+                descricao={`Animais distintos detectados em cada mês, desde o primeiro mês com leitura (até ${MESES_CABECAS} meses).`}
+                className="flex-1"
+              />
+            ) : cabecas.data
+              ? <Card className="flex-1 p-6"><p role="status">Nenhuma leitura nos últimos {MESES_CABECAS} meses para contar as cabeças.</p></Card>
+              : <EstadoBloco consulta={cabecas} nome="a contagem de cabeças por mês" className="flex-1" />}
           </div>
-          <div className="min-w-0">
+          <div className="flex min-w-0">
             {dadosResumo
-              ? <QuantidadeCabecas dados={dadosResumo.zonas} recentesSemZona={dadosResumo.recentes_sem_zona} className="h-full" />
-              : <EstadoBloco consulta={resumo} nome="a quantidade de cabeças" className="h-full" />}
+              ? <QuantidadeCabecas dados={dadosResumo.zonas} recentesSemZona={dadosResumo.recentes_sem_zona} className="flex-1" />
+              : <EstadoBloco consulta={resumo} nome="a quantidade de cabeças" className="flex-1" />}
           </div>
         </div>
-        <div className="relative mt-5 min-w-0 xl:mt-[26px] xl:ml-auto xl:flex xl:min-h-[425px] xl:w-[57.9%] xl:flex-col">
-          <MediaMovimentacao className="xl:flex-1" />
+        <div className="relative mt-5 min-w-0 xl:mt-[26px]">
+          <MediaMovimentacao />
           <SeloSimulado className="absolute right-3 bottom-1.5" descricao="Movimentação ilustrativa; a distância não é calculada pelo RSSI." />
         </div>
       </Secao>

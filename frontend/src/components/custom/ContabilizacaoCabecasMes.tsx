@@ -13,13 +13,17 @@ export type RegistroMensalCabecas = {
   mes: string
   /** Quantidade de animais contabilizada no mês. */
   real: number
-  /** Meta de animais estabelecida para o mês. */
-  ideal: number
+  /** Meta de animais estabelecida para o mês. Sem meta em nenhum mês, a série "Ideal" não aparece. */
+  ideal?: number
 }
 
 export type ContabilizacaoCabecasMesProps = {
   /** Dados já ordenados conforme devem aparecer no eixo horizontal. */
   dados?: RegistroMensalCabecas[]
+  /** Nomes das séries na legenda e no tooltip. */
+  rotulos?: { real: string; ideal?: string }
+  /** Texto curto sob o título, explicando a origem dos números. */
+  descricao?: string
   className?: string
 }
 
@@ -55,8 +59,15 @@ const formatarQuantidade = (valor: number) => valor.toLocaleString("pt-BR")
 
 export function ContabilizacaoCabecasMes({
   dados = dadosSimulados,
+  rotulos = { real: "Real", ideal: "Ideal" },
+  descricao,
   className,
 }: ContabilizacaoCabecasMesProps) {
+  const comMeta = dados.some((registro) => registro.ideal != null)
+  const configuracao = {
+    real: { ...configuracaoGrafico.real, label: rotulos.real },
+    ideal: { ...configuracaoGrafico.ideal, label: rotulos.ideal ?? "Ideal" },
+  } satisfies ChartConfig
   return (
     <Card
       className={`@container w-full min-w-0 gap-5 py-5 @min-[700px]:gap-7 @min-[700px]:py-6 ${className ?? ""}`}
@@ -71,28 +82,32 @@ export function ContabilizacaoCabecasMes({
           <div className="flex shrink-0 items-center gap-3 text-xs @min-[550px]:gap-5 @min-[550px]:text-sm">
             <span className="flex items-center gap-1.5 @min-[550px]:gap-2.5">
               <span aria-hidden="true" className="size-3 rounded-[3px] bg-primary @min-[550px]:size-6 @min-[850px]:size-7" />
-              Real
+              {rotulos.real}
             </span>
-            <span className="flex items-center gap-1.5 @min-[550px]:gap-2.5">
-              <span aria-hidden="true" className="size-3 rounded-[3px] bg-secondary @min-[550px]:size-6 @min-[850px]:size-7" />
-              Ideal
-            </span>
+            {comMeta && (
+              <span className="flex items-center gap-1.5 @min-[550px]:gap-2.5">
+                <span aria-hidden="true" className="size-3 rounded-[3px] bg-secondary @min-[550px]:size-6 @min-[850px]:size-7" />
+                {rotulos.ideal ?? "Ideal"}
+              </span>
+            )}
           </div>
         </div>
+        {descricao && <p className="mt-1 text-xs text-muted-foreground @min-[650px]:text-sm">{descricao}</p>}
       </CardHeader>
 
-      <CardContent className="min-w-0 px-2 @min-[650px]:px-5">
-        {/* A largura mínima mantém os 12 meses legíveis em cards estreitos.
+      <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col px-2 @min-[650px]:px-5">
+        {/* O gráfico ocupa a altura que sobra no card (mesma linha do card ao lado).
+            A largura mínima mantém os 12 meses legíveis em cards estreitos.
             O usuário pode rolar horizontalmente, inclusive por teclado. */}
         <div
           role="region"
-          aria-label="Gráfico comparativo mensal de cabeças de gado; role horizontalmente para consultar os 12 meses"
+          aria-label="Gráfico mensal de cabeças de gado; role horizontalmente se os meses não couberem"
           tabIndex={0}
-          className="w-full min-w-0 overflow-x-auto pb-2 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-auto pb-2 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <ChartContainer
-            config={configuracaoGrafico}
-            className="aspect-auto h-[215px] w-full min-w-[820px] @min-[650px]:h-[275px] @min-[980px]:h-[315px]"
+            config={configuracao}
+            className={`aspect-auto min-h-[200px] w-full flex-1 @min-[650px]:min-h-[230px] ${dados.length > 6 ? "min-w-[820px]" : "min-w-[360px]"}`}
           >
             <BarChart
               accessibilityLayer
@@ -130,16 +145,18 @@ export function ContabilizacaoCabecasMes({
                   />
                 }
               />
-              <Bar
-                dataKey="ideal"
-                name="Ideal"
-                fill="var(--color-ideal)"
-                radius={[5, 5, 0, 0]}
-                maxBarSize={37}
-              />
+              {comMeta && (
+                <Bar
+                  dataKey="ideal"
+                  name={rotulos.ideal ?? "Ideal"}
+                  fill="var(--color-ideal)"
+                  radius={[5, 5, 0, 0]}
+                  maxBarSize={37}
+                />
+              )}
               <Bar
                 dataKey="real"
-                name="Real"
+                name={rotulos.real}
                 fill="var(--color-real)"
                 radius={[5, 5, 0, 0]}
                 maxBarSize={37}

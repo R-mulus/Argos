@@ -29,7 +29,8 @@ As consultas ficam em `lib/fonteMonitoramento.ts` e usam `consultarApi` com TanS
 | Análise Geral (zonas) | `/monitoramento/resumo` para animais e coleiras na zona; `/zonas` com `/monitoramento/receptores` para receptores ativos (um por zona). |
 | Quantidade de Cabeças | Resumo reconciliado, incluindo "Sem zona". |
 | Status Receptores | Comunicação observada, quatro por página. O RSSI é a última leitura da zona recebida pelo receptor nos últimos 5 minutos. Bateria e modelo do receptor não têm fonte. |
-| Temperatura, processamento de imagens, contagem mensal e movimentação | Simulados, com o selo `SeloSimulado`. |
+| Contabilização de Cabeças Per/Mês | Animais distintos detectados em cada mês, do primeiro mês com leitura até o atual (até 6 meses). Usa `GET /deteccoes/exportar` do período inteiro, numa consulta, e lê o CSV no navegador. Não há meta "ideal" na API; a série não aparece. |
+| Temperatura, processamento de imagens e movimentação | Simulados, com o selo `SeloSimulado`. |
 
 `#/demonstracao/inicio` mostra a mesma tela com fixtures e aceita `?cenario=preenchido|vazio|erro|carregando|desatualizado`; não consulta a API. `node verificar-inicio.mjs` renderiza os cinco cenários por SSR e não substitui o teste no navegador.
 
@@ -39,10 +40,10 @@ A rota `/animals` (`AnimaisZona.tsx`) reproduz o frame “Visão Geral - Curral 
 
 | Bloco | Origem |
 |---|---|
-| Banner da zona (`ResumoCurral`) | Animais, receptores e coleiras da zona, animal em destaque e alerta prioritário (avisos novos de animais da zona ou do seu receptor). Intervalo entre dados e Precisão são simulados; o cadastro não tem nome de animal. |
+| Banner da zona (`ResumoCurral`) | Animais, receptores e coleiras da zona, animal em destaque e alerta prioritário (avisos novos de animais da zona ou do seu receptor). Intervalo entre dados: média entre leituras da zona no período, do histórico (`metricasReceptor`). Precisão é simulada, com selo; o cadastro não tem nome de animal. |
 | Análise Geral e Distribuição de Comportamento | Simulados (dependem do modelo de comportamento). |
 | Animal em Destaque | Primeiro animal recente da zona, como no Início. |
-| Animais Sem Detecção Recente | Adaptação do card "Fora da Área de Cobertura": animais desatualizados cuja última posição foi a zona, maior tempo sem detecção e detectados agora. O gráfico é simulado. Não há geofence. |
+| Animais Sem Detecção Recente | Adaptação do card "Fora da Área de Cobertura": animais desatualizados cuja última posição foi a zona, maior tempo sem detecção e detectados agora. O gráfico mostra, por dia (ou por faixa de 2 h num período de um dia), o percentual dos animais detectados na zona no período que não foram detectados nela, comparando com o período anterior de mesma duração; vem do histórico da zona. Se o histórico passar do limite de leituras, os intervalos mais antigos ficam sem valor. Não há geofence. |
 | Mapa | Ilustração estática (`MapaIlustrativoZona`) com zoom; sem coordenadas no banco. O marcador mostra a contagem real. |
 | Histórico de Leitura | `/deteccoes` da zona no período, todas as páginas até 2.000 linhas; acima disso, aviso e exportação do período completo pelo servidor (`/deteccoes/exportar`). Colunas: ID, área, animal, data, hora, sexo, receptor, RSSI e bateria da coleira. |
 

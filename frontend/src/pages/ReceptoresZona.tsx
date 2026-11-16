@@ -78,6 +78,17 @@ export default function ReceptoresZona({ demonstracao }: { demonstracao?: Cenari
     }))),
   });
 
+  // Histórico da zona no período (mesma consulta e cache da tela Animais), para o intervalo do banner.
+  const historicoZona = useQuery({
+    queryKey: chaveMonitoramento(origem, "historico", zona?.id ?? "", inicio?.toISOString() ?? "", fimExclusivo?.toISOString() ?? ""),
+    enabled: Boolean(zona && inicio && fimExclusivo),
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => buscarHistoricoCompleto(fonte, { zonaId: zona!.id, inicio: inicio!.toISOString(), fim: fimExclusivo!.toISOString() }, signal),
+  });
+  const intervaloZona = historicoZona.data && fimExclusivo
+    ? metricasReceptor(historicoZona.data.linhas, historicoZona.data.total, fimExclusivo.getTime()).intervaloMinutos
+    : null;
+
   function abrirDetalhe(indice: number, id: string) {
     setPagina(Math.floor(indice / POR_PAGINA));
     setSelecionado(id);
@@ -109,6 +120,7 @@ export default function ReceptoresZona({ demonstracao }: { demonstracao?: Cenari
           receptoresAtivos={indicadores?.receptoresAtivos ?? null}
           totalReceptores={indicadores?.totalReceptores ?? null}
           coleirasAtivas={indicadores?.coleirasAtivas ?? null}
+          intervaloMinutos={intervaloZona}
           animalDestaqueId={posicaoDestaque?.identificacao}
           atualizadoEm={dadosResumo.atualizado_em}
           alertas={alertasZona}

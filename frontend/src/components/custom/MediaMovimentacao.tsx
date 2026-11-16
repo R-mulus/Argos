@@ -103,7 +103,7 @@ export function MediaMovimentacao({
               <LineChart
                 accessibilityLayer
                 data={dados}
-                margin={{ top: 8, right: 12, left: 0, bottom: 2 }}
+                margin={{ top: 8, right: 28, left: 0, bottom: 2 }}
               >
                 <CartesianGrid
                   vertical

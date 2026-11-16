@@ -1,5 +1,6 @@
 import type { Alerta, ComunicacaoReceptor, DeteccaoHistorico, PosicaoAnimal, ResumoMonitoramento } from "@argos/shared";
 import type { AnimalCadastro, EstadoAlerta, FiltroHistorico, FonteMonitoramento, Pagina, ZonaCadastro } from "@/lib/fonteMonitoramento";
+import type { LeituraAnimal } from "@/lib/historico";
 
 /**
  * Fixtures exclusivas das prévias públicas `#/demonstracao/inicio` e `#/demonstracao/animais`.
@@ -101,7 +102,12 @@ function historicoDemonstracao({ zonaId, inicio, fim }: FiltroHistorico): Detecc
 	const ultimo = Math.min(Date.parse(fim) - 1, Date.now() - (zona === 2 ? 3_600_000 : 0));
 	const linhas: DeteccaoHistorico[] = [];
 	for (let t = ultimo - (ultimo % passo), i = 0; t >= Date.parse(inicio); t -= passo * (i % 90 === 89 ? 4 : 1), i++) {
-		const animal = (i * 7 + zona) % 12;
+		// Parte dos animais some em alguns dias e em algumas faixas de 2 h, para a série de ausências.
+		const data = new Date(t);
+		const dia = Math.floor(t / 86_400_000);
+		const faixa = Math.floor(data.getHours() / 2);
+		const presentes = Array.from({ length: 8 + ((dia * 3 + zona) % 5) }, (_, a) => a).filter(a => (a + faixa + zona) % 6 !== 0);
+		const animal = presentes[(i * 7 + zona) % presentes.length];
 		const instante = new Date(t).toISOString();
 		linhas.push({
 			...leituraDemonstracao(zonaId),
@@ -167,6 +173,17 @@ export function fonteDemonstracao(cenario: CenarioDemonstracao): FonteMonitorame
 		historico: (filtro, offset) => responder(() => {
 			const linhas = vazio ? [] : historicoDemonstracao(filtro);
 			return { data: linhas.slice(offset, offset + 100), count: linhas.length, limit: 100, offset };
+		}),
+		leiturasPorAnimal: (inicio, fim) => responder(() => {
+			if (vazio) return [];
+			// Cada mês do intervalo, até o atual, com 52 a 69 animais distintos.
+			const leituras: LeituraAnimal[] = [];
+			const limite = Math.min(Date.parse(fim), Date.now());
+			for (let m = new Date(inicio); m.getTime() < limite; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) {
+				const quantidade = 52 + ((m.getMonth() * 7) % 18);
+				for (let a = 0; a < quantidade; a++) leituras.push({ animalId: `animal-${a}`, instante: new Date(m.getTime() + 86_400_000).toISOString() });
+			}
+			return leituras;
 		}),
 		exportarHistorico: filtro => responder(() => {
 			const linhas = historicoDemonstracao(filtro).map(l => [l.instante_referencia, l.zona_nome, l.animal_identificacao, l.receptor_codigo, l.rssi_dbm].join(";"));
