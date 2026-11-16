@@ -45,7 +45,7 @@ export function TemperaturaMedia({
 
   return (
     <Card
-      className={`@container relative w-full min-w-0 min-h-[155px] gap-0 overflow-hidden py-0 @min-[360px]:min-h-[200px] ${className}`}
+      className={`@container/card relative w-full min-w-0 gap-0 overflow-hidden py-0 ${className}`}
     >
       {/* Decoração verde do Figma; não representa, por si só, um status clínico. */}
       <div
@@ -54,16 +54,17 @@ export function TemperaturaMedia({
       />
 
       <CardHeader className="relative z-10 px-3 pt-3 pr-[27%] @min-[360px]:px-4 @min-[360px]:pt-4 @min-[360px]:pr-[32%]">
-        <CardTitle className="flex min-w-0 items-start gap-2 font-normal leading-tight text-base @min-[300px]:text-lg @min-[400px]:text-2xl">
+        <CardTitle className="flex min-w-0 items-start gap-2 font-normal leading-tight text-base @min-[300px]/card:text-lg @min-[400px]/card:text-2xl">
           <Thermometer
             aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 @min-[300px]:size-5 @min-[400px]:size-6"
+            className="mt-0.5 size-4 shrink-0 @min-[300px]/card:size-5 @min-[400px]/card:size-6"
           />
           <h3 className="min-w-0 break-words">Temperatura Média</h3>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex min-w-0 flex-1 flex-col px-0">
+      {/* A altura mínima fica no conteúdo: uma container query não se aplica ao próprio container. */}
+      <CardContent className="flex min-h-[107px] min-w-0 flex-1 flex-col px-0 @min-[360px]:min-h-[152px]">
         <p className="mt-4 px-4 text-[32px] leading-none font-normal tracking-tight tabular-nums @min-[300px]:text-[38px] @min-[360px]:mt-6 @min-[360px]:px-12 @min-[400px]:text-[44px]">
           {temperatura}
         </p>

@@ -78,7 +78,8 @@ export function registroDeDeteccao(leitura: DeteccaoHistorico): RegistroLeitura 
 		id: leitura.id,
 		areaId: leitura.zona_id ?? "—",
 		nomeArea: leitura.zona_nome ?? "Sem zona",
-		animalId: leitura.animal_id ?? "—",
+		// Identificação do cadastro; o UUID não é exibido.
+		animalId: leitura.animal_identificacao ?? "—",
 		dataHora: leitura.instante_referencia,
 		categoria: "—",
 		precisaoPercentual: null,
@@ -95,6 +96,10 @@ type HistoricoLeituraProps = {
 	className?: string;
 	/** Habilita exportação de dados filtrados e ordenados. Habilitar quando os dados fornecidos estiverem completos. */
 	permitirExportacao?: boolean;
+	/** Quando false, oculta categoria e precisão (dependentes do modelo de comportamento) na tabela, filtros e exportação local. */
+	exibirComportamento?: boolean;
+	/** Exportação gerada pelo servidor com o conjunto completo do filtro da página (ex.: CSV de `/deteccoes/exportar`). */
+	exportacaoCompleta?: { rotulo: string; aoExportar: () => Promise<void> };
 };
 
 // Os valores abaixo são fictícios e existem apenas para demonstrar a interface.
@@ -155,9 +160,17 @@ const recursosTabela = tableFeatures({
 const coluna = createColumnHelper<typeof recursosTabela, RegistroLeitura>();
 
 const colunas = coluna.columns([
-	coluna.accessor("id", { header: "ID", sortFn: "alphanumeric" }),
-	coluna.accessor("areaId", { header: "Área ID", sortFn: "alphanumeric" }),
-	coluna.accessor("animalId", { header: "Animal ID", sortFn: "alphanumeric" }),
+	coluna.accessor("id", {
+		header: "ID",
+		sortFn: "alphanumeric",
+		// UUIDs da API são abreviados; o valor completo fica no título.
+		cell: (celula) => {
+			const id = celula.getValue();
+			return id.length > 12 ? <span title={id}>{id.slice(0, 8)}</span> : id;
+		},
+	}),
+	coluna.accessor("nomeArea", { header: "Área", sortFn: "alphanumeric" }),
+	coluna.accessor("animalId", { header: "Animal", sortFn: "alphanumeric" }),
 	coluna.accessor((registro) => lerData(registro.dataHora), {
 		id: "data",
 		header: "Data",
@@ -170,8 +183,9 @@ const colunas = coluna.columns([
 		cell: (celula) => exibirData(celula.row.original.dataHora, "HH:mm"),
 		sortFn: "datetime",
 	}),
-	coluna.accessor("categoria", { header: "Categoria", sortFn: "alphanumeric" }),
+	coluna.accessor("categoria", { id: "categoria", header: "Categoria", sortFn: "alphanumeric" }),
 	coluna.accessor("precisaoPercentual", {
+		id: "precisao",
 		header: "Precisão",
 		cell: (celula) => formatarPercentual(celula.getValue()),
 	}),
@@ -186,6 +200,9 @@ const colunas = coluna.columns([
 		cell: (celula) => formatarPercentual(celula.getValue()),
 	}),
 ]);
+
+const colunasSemComportamento = colunas.filter((definicao) => definicao.id !== "categoria" && definicao.id !== "precisao");
+const indicesComportamento = new Set([6, 7]);
 
 // O CSV usa ponto e vírgula para facilitar a abertura em planilhas pt-BR.
 const nomesColunasExportacao = [
@@ -238,8 +255,13 @@ function baixarArquivo(conteudo: Blob, nome: string) {
 	window.setTimeout(() => URL.revokeObjectURL(endereco), 1000);
 }
 
-function exportarCSV(registros: RegistroLeitura[]) {
-	const linhas = [nomesColunasExportacao, ...registros.map(linhaExportacao)];
+function linhasExportacao(registros: RegistroLeitura[], exibirComportamento: boolean): (string | number)[][] {
+	const linhas = [[...nomesColunasExportacao], ...registros.map(linhaExportacao)];
+	return exibirComportamento ? linhas : linhas.map((linha) => linha.filter((_, indice) => !indicesComportamento.has(indice)));
+}
+
+function exportarCSV(registros: RegistroLeitura[], exibirComportamento: boolean) {
+	const linhas = linhasExportacao(registros, exibirComportamento);
 	const conteudo = `\uFEFF${linhas.map((linha) => linha.map(escaparCelulaCSV).join(";")).join("\r\n")}`;
 	baixarArquivo(
 		new Blob([conteudo], { type: "text/csv;charset=utf-8" }),
@@ -247,18 +269,22 @@ function exportarCSV(registros: RegistroLeitura[]) {
 	);
 }
 
-async function exportarXLSX(registros: RegistroLeitura[]) {
+async function exportarXLSX(registros: RegistroLeitura[], exibirComportamento: boolean) {
+	const [cabecalho, ...linhas] = linhasExportacao(registros, exibirComportamento);
 	// Carregamento sob demanda: a biblioteca só é baixada ao escolher XLSX.
 	const { default: ExcelJS } = await import("exceljs");
 	const arquivo = new ExcelJS.Workbook();
 	const planilha = arquivo.addWorksheet("Histórico de leitura");
-	planilha.columns = nomesColunasExportacao.map((nome) => ({
-		header: nome,
-		width: Math.max(14, nome.length + 5),
+	planilha.columns = cabecalho.map((nome) => ({
+		header: String(nome),
+		width: Math.max(14, String(nome).length + 5),
 	}));
-	planilha.addRows(registros.map(linhaExportacao));
+	planilha.addRows(linhas);
 	planilha.views = [{ state: "frozen", ySplit: 1 }];
-	planilha.autoFilter = { from: "A1", to: `L${Math.max(2, registros.length + 1)}` };
+	planilha.autoFilter = {
+		from: "A1",
+		to: { row: Math.max(2, registros.length + 1), column: cabecalho.length },
+	};
 	planilha.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
 	planilha.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF503723" } };
 	const buffer = await arquivo.xlsx.writeBuffer();
@@ -275,6 +301,8 @@ export function HistoricoLeitura({
 	dados,
 	className,
 	permitirExportacao = false,
+	exibirComportamento = true,
+	exportacaoCompleta,
 }: HistoricoLeituraProps) {
 	const identificador = useId();
 	const [animal, setAnimal] = useState("");
@@ -318,7 +346,7 @@ export function HistoricoLeitura({
 	const tabela = useTable({
 		features: recursosTabela,
 		data: registrosFiltrados,
-		columns: colunas,
+		columns: exibirComportamento ? colunas : colunasSemComportamento,
 		getRowId: (registro) => registro.id,
 		initialState: {
 			sorting: [{ id: "data", desc: true }],
@@ -346,6 +374,19 @@ export function HistoricoLeitura({
 		tabela.setPageIndex(0);
 	}
 
+	async function executarExportacaoCompleta() {
+		if (exportando || !exportacaoCompleta) return;
+		setErroExportacao("");
+		setExportando(true);
+		try {
+			await exportacaoCompleta.aoExportar();
+		} catch (erro) {
+			setErroExportacao(erro instanceof Error ? erro.message : "Não foi possível gerar o arquivo. Tente novamente.");
+		} finally {
+			setExportando(false);
+		}
+	}
+
 	async function executarExportacao(formato: "csv" | "xlsx") {
 		if (exportando) return;
 		setErroExportacao("");
@@ -353,8 +394,8 @@ export function HistoricoLeitura({
 		// Todas as linhas após filtragem e ordenação, não apenas a página exibida.
 		const registros = tabela.getPrePaginatedRowModel().rows.map((linha) => linha.original);
 		try {
-			if (formato === "csv") exportarCSV(registros);
-			else await exportarXLSX(registros);
+			if (formato === "csv") exportarCSV(registros, exibirComportamento);
+			else await exportarXLSX(registros, exibirComportamento);
 		} catch {
 			setErroExportacao("Não foi possível gerar o arquivo. Tente novamente.");
 		} finally {
@@ -432,6 +473,7 @@ export function HistoricoLeitura({
 										</SelectContent>
 									</Select>
 								</div>
+								{exibirComportamento && (
 								<div className="grid gap-1.5">
 									<Label>Categoria de comportamento</Label>
 									<Select
@@ -454,6 +496,7 @@ export function HistoricoLeitura({
 										</SelectContent>
 									</Select>
 								</div>
+								)}
 								<div className="grid w-full min-w-0 gap-1.5">
 									<Label>Intervalo de datas</Label>
 									<div className="w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
@@ -480,7 +523,7 @@ export function HistoricoLeitura({
 						</PopoverContent>
 					</Popover>
 
-					{permitirExportacao && (
+					{(permitirExportacao || exportacaoCompleta) && (
 						<DropdownMenu>
 							<DropdownMenuTrigger
 								render={
@@ -495,20 +538,33 @@ export function HistoricoLeitura({
 								{exportando ? "Gerando..." : "Exportar"}
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
-								<DropdownMenuItem
-									onClick={() => {
-										void executarExportacao("csv");
-									}}
-								>
-									<FileText className="size-4" /> Exportar CSV
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => {
-										void executarExportacao("xlsx");
-									}}
-								>
-									<FileSpreadsheet className="size-4" /> Exportar XLSX
-								</DropdownMenuItem>
+								{exportacaoCompleta && (
+									<DropdownMenuItem
+										onClick={() => {
+											void executarExportacaoCompleta();
+										}}
+									>
+										<FileText className="size-4" /> {exportacaoCompleta.rotulo}
+									</DropdownMenuItem>
+								)}
+								{permitirExportacao && (
+									<>
+										<DropdownMenuItem
+											onClick={() => {
+												void executarExportacao("csv");
+											}}
+										>
+											<FileText className="size-4" /> {exportacaoCompleta ? "Exportar filtro da tabela (CSV)" : "Exportar CSV"}
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={() => {
+												void executarExportacao("xlsx");
+											}}
+										>
+											<FileSpreadsheet className="size-4" /> {exportacaoCompleta ? "Exportar filtro da tabela (XLSX)" : "Exportar XLSX"}
+										</DropdownMenuItem>
+									</>
+								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}
@@ -573,7 +629,7 @@ export function HistoricoLeitura({
 							) : (
 								<TableRow>
 									<TableCell
-										colSpan={colunas.length}
+										colSpan={exibirComportamento ? colunas.length : colunasSemComportamento.length}
 										className="h-24 text-center text-muted-foreground"
 									>
 										Nenhuma leitura encontrada para os filtros selecionados.

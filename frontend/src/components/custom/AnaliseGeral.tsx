@@ -20,7 +20,8 @@ export type GeneralAnalysisData = {
 
 type AnaliseGeralProps = {
   data?: GeneralAnalysisData
-  detailsPath: string
+  /** Sem destino, a seta da aba é apenas decorativa. */
+  detailsPath?: string
 }
 
 // Dados simulados; futuramente, substituir pela resposta da API Argos.
@@ -60,13 +61,19 @@ export function AnaliseGeral({ data = mockData, detailsPath }: AnaliseGeralProps
           <span>Análise Geral</span>
         </CardTitle>
         <CardAction className="absolute top-0 right-0">
-          <Link
-            to={detailsPath}
-            aria-label="Ver detalhes da análise geral"
-            className="flex size-11 items-center justify-center rounded-bl-2xl bg-primary text-white transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ring @min-[400px]:size-14 @min-[700px]:size-[74px] @min-[700px]:rounded-bl-3xl"
-          >
-            <ArrowUpRight aria-hidden="true" className="size-6 stroke-[2.25] @min-[400px]:size-8 @min-[700px]:size-9" />
-          </Link>
+          {detailsPath ? (
+            <Link
+              to={detailsPath}
+              aria-label="Ver detalhes da análise geral"
+              className="flex size-11 items-center justify-center rounded-bl-2xl bg-primary text-white transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ring @min-[400px]:size-14 @min-[700px]:size-[74px] @min-[700px]:rounded-bl-3xl"
+            >
+              <ArrowUpRight aria-hidden="true" className="size-6 stroke-[2.25] @min-[400px]:size-8 @min-[700px]:size-9" />
+            </Link>
+          ) : (
+            <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-bl-2xl bg-primary text-white @min-[400px]:size-14 @min-[700px]:size-[74px] @min-[700px]:rounded-bl-3xl">
+              <ArrowUpRight className="size-6 stroke-[2.25] @min-[400px]:size-8 @min-[700px]:size-9" />
+            </span>
+          )}
         </CardAction>
       </CardHeader>
 

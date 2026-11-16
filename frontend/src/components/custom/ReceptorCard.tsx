@@ -17,6 +17,8 @@ export type ReceptorData = ComunicacaoReceptor & {
 type ReceptorCardProps = {
   data: ReceptorData
   detailsPath?: string
+  /** Texto do rodapé; por padrão, o status do cadastro. */
+  mensagem?: string
 }
 
 // Dados temporários; substituir por dados recebidos da API Argos.
@@ -33,6 +35,18 @@ export const receptorSimulado: ReceptorData = {
   intervalMinutes: 30,
   recordsPerDay: 48,
   signalLosses: 2,
+}
+
+/** Minutos em texto legível: "45 min", "2 h 10 min", "3 d 11 h". */
+function formatarDuracao(minutos: number): string {
+  if (minutos < 60) return `${minutos.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} min`
+  const horas = Math.floor(minutos / 60)
+  if (horas < 24) {
+    const resto = Math.round(minutos % 60)
+    return resto ? `${horas} h ${resto} min` : `${horas} h`
+  }
+  const dias = Math.floor(horas / 24)
+  return horas % 24 ? `${dias} d ${horas % 24} h` : `${dias} d`
 }
 
 function formatLastUpdated(value: string): string {
@@ -52,13 +66,14 @@ function formatLastUpdated(value: string): string {
 export function ReceptorCard({
   data,
   detailsPath,
+  mensagem,
 }: ReceptorCardProps) {
   const metrics = [
     { label: "RSSI", value: data.rssiDbm == null ? "—" : `${data.rssiDbm} dBm` },
     { label: "Modelo", value: data.model ?? "—" },
     { label: "Bateria", value: data.batteryPercent == null ? "—" : `${data.batteryPercent}%` },
-    { label: "Tempo de Intervalo", value: data.intervalMinutes == null ? "—" : `${data.intervalMinutes} min` },
-    { label: "Registro Per/Dia", value: data.recordsPerDay?.toLocaleString("pt-BR") ?? "—" },
+    { label: "Tempo de Intervalo", value: data.intervalMinutes == null ? "—" : formatarDuracao(data.intervalMinutes) },
+    { label: "Registro Per/Dia", value: data.recordsPerDay?.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) ?? "—" },
     { label: "Perdas de Sinal", value: data.signalLosses?.toLocaleString("pt-BR") ?? "—" },
   ]
 
@@ -110,7 +125,7 @@ export function ReceptorCard({
         </dl>
 
         <p className="mt-5 break-words text-xs leading-4 @min-[400px]:mt-6 @min-[400px]:text-sm @min-[690px]:mt-7 @min-[690px]:text-base">
-          Cadastro do receptor: {data.status === "ativo" ? "ativo" : "inativo"}.
+          {mensagem ?? `Cadastro do receptor: ${data.status === "ativo" ? "ativo" : "inativo"}.`}
         </p>
       </CardContent>
     </Card>

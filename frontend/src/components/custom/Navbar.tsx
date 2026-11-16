@@ -93,7 +93,7 @@ export default function Navbar() {
 						<ToggleGroupItem
 							value="/animals"
 							aria-label="Ir para Animais"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<Icon iconNode={cowHead} className="size-5" />
 							<span>Animais</span>
@@ -103,7 +103,7 @@ export default function Navbar() {
 						<ToggleGroupItem
 							value="/receptores"
 							aria-label="Ir para Receptores"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<SatelliteDish className="size-5" />
 							<span>Receptores</span>
@@ -113,7 +113,7 @@ export default function Navbar() {
 						<ToggleGroupItem
 							value="/alertas"
 							aria-label="Ir para Alertas"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<TriangleAlert className="size-5" />
 							<span>Alertas</span>
@@ -136,24 +136,24 @@ export default function Navbar() {
 						}}
 						className="gap-1"
 					>
-						{/* Configurações */}
-						<ToggleGroupItem
-							value="/configuracoes"
-							aria-label="Ir para Configurações"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
-						>
-							<Settings className="size-5" />
-							<span>Configurações</span>
-						</ToggleGroupItem>
-
 						{/* Perfil */}
 						<ToggleGroupItem
 							value="/perfil"
 							aria-label="Ir para Perfil"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<UserRound className="size-5" />
 							<span>Perfil</span>
+						</ToggleGroupItem>
+
+						{/* Configurações */}
+						<ToggleGroupItem
+							value="/configuracoes"
+							aria-label="Ir para Configurações"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
+						>
+							<Settings className="size-5" />
+							<span>Configurações</span>
 						</ToggleGroupItem>
 
 						</ToggleGroup>
@@ -162,7 +162,7 @@ export default function Navbar() {
 							disabled={saindo}
 							onClick={sair}
 							aria-label="Sair da conta"
-							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-foreground data-pressed:font-semibold data-pressed:text-secondary"
+							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
 							<LogOut className="size-5" />
 							<span>Sair</span>

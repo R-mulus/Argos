@@ -136,7 +136,7 @@ export function ResumoCurral({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-black/75 via-black/55 to-black/40"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-black/60 via-black/35 to-black/15"
       />
 
       {/* Faixa de atualização: ocupa o topo no card estreito e o canto direito no largo. */}
@@ -161,7 +161,7 @@ export function ResumoCurral({
         </Button>
       </div>
 
-      <CardContent className="relative z-10 flex min-h-[315px] flex-col gap-0 px-4 pb-5 pt-[78px] @min-[480px]:px-5 @min-[680px]:min-h-[350px] @min-[680px]:px-7 @min-[680px]:pb-7 @min-[680px]:pt-7">
+      <CardContent className="relative z-10 flex min-h-[315px] flex-col gap-0 px-4 pb-5 pt-[78px] @min-[480px]:px-5 @min-[680px]:min-h-[350px] @min-[680px]:px-7 @min-[680px]:pb-7 @min-[680px]:pt-7 @min-[1100px]:min-h-[384px] @min-[1100px]:px-[30px] @min-[1100px]:pb-[50px]">
         <header className="flex min-w-0 items-center gap-2 @min-[680px]:max-w-[57%]">
           <Camera aria-hidden="true" className="size-5 shrink-0 @min-[680px]:size-7" />
           <h2 className="min-w-0 truncate text-xl leading-tight font-semibold @min-[440px]:text-2xl @min-[900px]:text-[30px]">
@@ -169,58 +169,31 @@ export function ResumoCurral({
           </h2>
         </header>
 
-        <div className="mt-6 grid min-w-0 grid-cols-1 gap-x-7 gap-y-5 @min-[400px]:grid-cols-[minmax(95px,0.8fr)_minmax(0,3fr)] @min-[740px]:mt-8 @min-[900px]:gap-x-10">
-          <div className="min-w-0">
-            <p className="text-[clamp(2.6rem,8cqw,4.1rem)] leading-none font-normal tabular-nums">
+        {/* Grade do Figma: número com recuo e três colunas agrupadas à esquerda (176/177/317 px em 1920 px). */}
+        <dl className="mt-6 grid min-w-0 grid-cols-2 gap-x-4 gap-y-5 @min-[560px]:grid-cols-[minmax(96px,auto)_repeat(3,minmax(0,1fr))] @min-[560px]:gap-x-6 @min-[1100px]:mt-[30px] @min-[1100px]:grid-cols-[176px_177px_317px_minmax(0,1fr)] @min-[1100px]:gap-x-0 @min-[1100px]:gap-y-[28px]">
+          <div className="col-span-2 min-w-0 @min-[560px]:col-span-1 @min-[560px]:row-span-2 @min-[1100px]:pl-[44px]">
+            <dd className="text-[clamp(2.6rem,8cqw,4.1rem)] leading-none font-normal tabular-nums">
               {curral.animaisAtivos == null ? "—" : formatoNumero.format(curral.animaisAtivos)}
-            </p>
-            <p className="mt-1 text-xs @min-[680px]:text-sm @min-[900px]:text-base">
-              Animais Ativos
-            </p>
+            </dd>
+            <dt className="mt-1 text-xs @min-[680px]:text-sm @min-[900px]:text-base">Animais Ativos</dt>
           </div>
-
-          <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-5 @min-[700px]:grid-cols-3 @min-[900px]:gap-x-6">
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Receptores Ativos</dt>
-              <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.receptoresAtivos ?? "—"}/{curral.totalReceptores ?? "—"}
-              </dd>
+          {[
+            ["Receptores Ativos", `${curral.receptoresAtivos ?? "—"}/${curral.totalReceptores ?? "—"}`],
+            ["Intervalo entre dados", curral.intervaloDadosMinutos == null ? "—" : `${curral.intervaloDadosMinutos} min`],
+            ["Animal em Destaque", curral.animalDestaqueId ?? "—"],
+            ["Coleiras Ativas", curral.coleirasAtivas == null ? "—" : formatoNumero.format(curral.coleirasAtivas)],
+            ["Precisão", curral.precisaoPercentual == null ? "—" : `${curral.precisaoPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`],
+            ["Nome", curral.animalDestaqueNome ?? "—"],
+          ].map(([rotulo, valor]) => (
+            <div key={rotulo} className="min-w-0">
+              <dt className="text-xs leading-snug @min-[900px]:text-base">{rotulo}</dt>
+              <dd className="mt-1 break-words text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">{valor}</dd>
             </div>
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Intervalo entre dados</dt>
-              <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.intervaloDadosMinutos == null ? "—" : `${curral.intervaloDadosMinutos} min`}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Animal em Destaque</dt>
-              <dd className="mt-1 break-words text-lg leading-tight font-semibold @min-[900px]:text-2xl">
-                {curral.animalDestaqueId ?? "—"}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Coleiras Ativas</dt>
-              <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.coleirasAtivas == null ? "—" : formatoNumero.format(curral.coleirasAtivas)}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Precisão</dt>
-              <dd className="mt-1 text-lg leading-tight font-semibold tabular-nums @min-[900px]:text-2xl">
-                {curral.precisaoPercentual == null ? "—" : `${curral.precisaoPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs leading-snug @min-[900px]:text-base">Nome</dt>
-              <dd className="mt-1 break-words text-lg leading-tight font-semibold @min-[900px]:text-2xl">
-                {curral.animalDestaqueNome ?? "—"}
-              </dd>
-            </div>
-          </dl>
-        </div>
+          ))}
+        </dl>
 
         <div className="mt-auto pt-7 @min-[780px]:pt-8">
-          <div className="w-full rounded-lg border border-white/35 bg-white/20 px-3 py-3 text-xs leading-relaxed backdrop-blur-sm @min-[500px]:px-4 @min-[500px]:text-sm @min-[1100px]:max-w-[62%] @min-[1100px]:py-4">
+          <div className="w-full rounded-lg border border-white/35 bg-white/20 px-3 py-3 text-xs leading-relaxed backdrop-blur-sm @min-[500px]:px-4 @min-[500px]:text-sm @min-[1100px]:max-w-[59.5%] @min-[1100px]:py-[25px]">
             <span className="mr-1 font-semibold">Alerta Prioritário:</span>
             <span>{alerta?.mensagem ?? (curral.alertas ? "Nenhum alerta no momento." : "Indisponível")}</span>
           </div>

@@ -24,7 +24,8 @@ export function StatusIndicator({
   size = "sm",
 }: StatusIndicatorProps) {
   const isOnline = status === "recente"
-  const dotColor = isOnline ? "bg-emerald-600" : "bg-zinc-400"
+  // Verde do Figma (#0AA146).
+  const dotColor = isOnline ? "bg-[#0AA146]" : "bg-zinc-400"
   const large = size === "lg"
 
   if (withHalo) {

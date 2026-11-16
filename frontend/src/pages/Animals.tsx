@@ -1,5 +1,6 @@
-import Listagem from "./Listagem";
+import AnimaisZona from "./AnimaisZona";
 
+/** Rota /animals: visão por zona (Figma "Visão Geral - Curral 03"). */
 export default function Animals() {
-	return <Listagem secao="Animais" />;
+	return <AnimaisZona />;
 }
