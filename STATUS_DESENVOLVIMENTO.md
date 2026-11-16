@@ -227,3 +227,22 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 > **16/11/2026 — foto no login (alteração local).** O painel esquerdo de autenticação passou a exibir a foto fornecida pelo usuário, sem textos institucionais e com gradiente escuro equivalente ao ResumoCurral. Em telas menores, o painel permanece acima do formulário. Arquivos: frontend/src/pages/Auth.tsx, Auth.css e assets/vacas-login.jpg. Sem novas dependências ou alteração na autenticação. Validação: pnpm build e pnpm lint aprovados; build mantém aviso de chunks grandes. Visualização em navegador não revalidada nesta alteração. Sem commit ou push.
 
 > **16/11/2026 — gráficos da tela inicial e mesclagem da `backend-iot`.** Na área de gráficos do Início, "Contabilização de Cabeças Per/Mês" e "Quantidade de Cabeças" ficam lado a lado e com a mesma altura. As barras ocupam só a altura do cartão, e a rosca fica ao lado da legenda a partir de 560 px. "Média de Movimentação" passou a ocupar a largura inteira, com folga para o último horário. A `dev` local avançou até `c2cb8d5` (`backend-iot`) sem commit de merge e sem conflitos; as alterações locais guardadas pelo GitHub Desktop (`stash@{0}`) foram reaplicadas e o stash continua como backup. **Pendências:** `git push` da `dev`. Os IDs da carga de demonstração (`md5(...)::uuid`) não seguem o formato de UUID exigido pela API, e as rotas com ID desses registros respondem 400: cadastro do animal em destaque, histórico das zonas DEMO, avisos e edições.
+
+> **16/11/2026 — finalização, fase 1 (banco, carga de demonstração e broker).** O histórico de migrações do Supabase agora registra `20261116000000_argos_iot_processamento`, que tinha sido aplicada manualmente. A nova `20261116181500_argos_alinhamento_remoto.sql`, aplicada e versionada, faz o seguinte:
+> - versiona as tabelas legadas do MVP `argos_observacoes_visao` e `argos_sync_outbox`;
+> - retira os privilégios de `anon` e `authenticated` dessas duas tabelas, que tinham acesso total, inclusive `TRUNCATE`;
+> - remove a restrição duplicada `uq_argos_loc_evento`;
+> - cria índices para as 11 chaves estrangeiras compostas sem cobertura.
+>
+> O linter do Supabase não aponta mais duplicidade nem chaves sem índice. A carga `supabase/seeds/demonstracao.sql` foi corrigida e recriada no banco:
+> - os IDs seguem o formato v4 exigido pela API (0 inválidos);
+> - o histórico é relativo ao dia da execução e as pesagens caem às segundas-feiras;
+> - os jobs de localização gerados pelo trigger para os eventos DEMO são removidos;
+> - `seeds/demonstracao_remover.sql` apaga só a carga.
+>
+> `docker-compose.yml` descreve o broker `argos-emqx` (EMQX 6.3.2, portas 1883, 8883 e painel local 18083, volumes persistentes).
+>
+> **Pendentes:**
+> - ativar a proteção contra senhas vazadas no painel do Supabase (Auth › Password security);
+> - exportar a configuração do container `argos-emqx` criado à mão, antes de adotar o compose;
+> - commit e push da `dev`.
