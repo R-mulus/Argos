@@ -13,7 +13,7 @@ Na raiz, execute `pnpm install`, inicie a API com `pnpm --dir backend dev` e abr
 | `/configuracoes` | Espaço reservado à tela de configurações. |
 | `/demonstracao` | Galeria pública com os componentes e dados simulados para desenvolvimento visual. |
 
-Para desenvolver novas telas, use `consultarApi` com um caminho relativo à API e o `signal` do TanStack Query. A função envia o token da sessão. O cache de consultas pertence ao usuário conectado. O botão Sair encerra a sessão local. O layout definitivo, o cadastro de usuários e a recuperação de senha seguem disponíveis para desenvolvimento pela equipe.
+Para desenvolver novas telas, use `consultarApi` com um caminho relativo à API e o `signal` do TanStack Query. A função envia o token da sessão. O cache de consultas pertence ao usuário conectado. O botão Sair encerra a sessão local. A tela de login possui layout responsivo e animação de entrada; cadastro de usuários e recuperação de senha não fazem parte do fluxo disponível e seguem sob responsabilidade da equipe.
 
 # React + TypeScript + Vite
 
