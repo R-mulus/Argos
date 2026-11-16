@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'feat/backend-*'
+      - 'backend-iot'
   pull_request:
     paths:
       - 'backend/**'

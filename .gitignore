@@ -35,3 +35,11 @@ supabase/.temp/
 *.sw?
 # Fila de detecções do gateway (inclui WAL e arquivos auxiliares)
 /backend/data/
+# IoT: credenciais de gravação, modelos e dados de treinamento
+**/ArgosSecrets.h
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+/iot/model/
+/iot/data/
+*.keras

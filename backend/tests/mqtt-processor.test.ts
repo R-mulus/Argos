@@ -90,3 +90,11 @@ test('erro de persistência deve subir para replay; erro de status não invalida
   assert.equal(await processarDeteccao(repo, evento, (message) => errors.push(message)), 'gravada');
   assert.equal(errors.length, 1);
 });
+test('buffer sem relógio não assume animal, zona nem transmissão recente', async () => {
+  const repo = new FakeRepo();
+  await processarDeteccao(repo, { ...evento, detectadoEm: null });
+  assert.equal(repo.detecoes[0].vinculo_id, null);
+  assert.equal(repo.detecoes[0].zona_id, null);
+  assert.equal(repo.detecoes[0].detectado_em, null);
+  assert.deepEqual(repo.comunicações, [evento.receptorId]);
+});

@@ -28,7 +28,7 @@ test('rotas IoT exigem token Bearer e health check continua público', async () 
       body: JSON.stringify({ estado: 'lido' }),
     })).status, 401);
 
-    for (const path of ['/api/dispositivos', '/api/zonas', '/api/vinculos', '/api/deteccoes', '/api/monitoramento/resumo', '/api/monitoramento/receptores']) {
+    for (const path of ['/api/iot/localizacoes', '/api/iot/predicoes', '/api/iot/receptores/coordenadas', '/api/dispositivos', '/api/zonas', '/api/vinculos', '/api/deteccoes', '/api/monitoramento/resumo', '/api/monitoramento/receptores']) {
       const response = await fetch(base + path);
       assert.equal(response.status, 401, path);
       assert.match(JSON.stringify(await response.json()), /\"code\":\"UNAUTHORIZED\"/);

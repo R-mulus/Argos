@@ -94,3 +94,36 @@ export interface DeteccaoHistorico {
   recebido_em: string;
   instante_referencia: string | null;
 }
+
+/** Coordenadas locais em metros; erro residual não é erro real medido. */
+export interface LocalizacaoIoT {
+  id: string;
+  propriedade_id: string;
+  transmissor_id: string;
+  animal_id: string | null;
+  evento_id: string;
+  x_m: number;
+  y_m: number;
+  erro_residual_m: number;
+  receptores_utilizados: number;
+  observado_em: string | null;
+  calculado_em: string;
+}
+
+export interface PredicaoIoT {
+  id: string;
+  propriedade_id: string;
+  animal_id: string;
+  evento_id: string | null;
+  comportamento: string;
+  confianca: number;
+  probabilidades: Record<string, number>;
+  atual_x_m: number | null;
+  atual_y_m: number | null;
+  proximo_x_m: number | null;
+  proximo_y_m: number | null;
+  observado_em: string | null;
+  previsto_para: string | null;
+  modelo_versao: string;
+  criado_em: string;
+}

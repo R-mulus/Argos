@@ -43,16 +43,18 @@ export async function processarDeteccao(
     throw new MensagemInvalida('Transmissor não cadastrado, inativo ou pertencente a outra propriedade.');
   }
 
-  // Relógio ausente: não inventar data do ESP32, mas usar o instante de
-  // recebimento para buscar vínculo atual. Replays usam o instante original.
+  // Relógio ausente: um buffer pode ser antigo; não atribuir animal/zona atuais.
+  // A hora do gateway continua registrada separadamente para diagnóstico.
   const instante = evento.detectadoEm ?? evento.recebidoEm;
   const recenciaMs = Date.parse(evento.recebidoEm) - Date.parse(instante);
-  const recente = recenciaMs >= -60_000 && recenciaMs <= 5 * 60_000;
+  const recente = evento.detectadoEm !== null && recenciaMs >= -60_000 && recenciaMs <= 5 * 60_000;
   const [zona, vinculo] = await Promise.all([
     recente
       ? repositorio.buscarZonaAtiva(evento.propriedadeId, evento.receptorId, instante)
       : Promise.resolve(null),
-    repositorio.buscarVinculoNoInstante(evento.propriedadeId, evento.transmissorId, instante),
+    evento.detectadoEm !== null
+      ? repositorio.buscarVinculoNoInstante(evento.propriedadeId, evento.transmissorId, instante)
+      : Promise.resolve(null),
   ]);
   const vinculoId = vinculo && Date.parse(vinculo.inicio_em) <= Date.parse(instante) &&
     (vinculo.fim_em === null || Date.parse(vinculo.fim_em) > Date.parse(instante))
