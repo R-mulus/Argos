@@ -82,6 +82,8 @@ test('worker coleta no EMQX offline, reinicia e envia as três leituras', async 
   await aguardar(() => log.includes('Assinatura QoS 1 ativa'));
   const publicador = await connectAsync(mqttUrl, { connectTimeout: 5000, reconnectPeriod: 0 });
   t.after(() => publicador.endAsync(true));
+  await publicador.publishAsync(topico, '{invalido', { qos: 1 });
+  await aguardar(() => log.includes('Detecção rejeitada:'));
   for (const id of ['1', '2', '3', '1']) {
     await publicador.publishAsync(topico, JSON.stringify({
       versao: 1, evento_id: id, transmissor_id: transmissor, rssi_dbm: -64,

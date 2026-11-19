@@ -30,7 +30,13 @@ void setup() {
   ArgosBeacon beacon = {};
   beacon.magic=0xA260BEE1UL; beacon.version=2; beacon.battery=255;
   beacon.boot=bootNonce; beacon.sequence=++sequence;
-  bool valid = parseUuid(ARGOS_TRANSMITTER_UUID, beacon.transmitter) && tagBeacon(beacon, beacon.tag);
+  bool valid = parseUuid(ARGOS_DEVICE_UUID, beacon.transmitter) && tagBeacon(beacon, beacon.tag);
+  if (!valid) {
+    Serial.println("UUID invalido ou falha ao assinar beacon; nada sera transmitido");
+  } else {
+    char id[80]; eventId(beacon, id, sizeof(id));
+    Serial.printf("ARGOS transmissor UUID: %s\nEvento: %s\n", ARGOS_DEVICE_UUID, id);
+  }
   if (valid && esp_now_init() == ESP_OK) {
     esp_now_register_send_cb(onSent);
     esp_now_peer_info_t peer = {}; memset(peer.peer_addr, 0xff, 6);
@@ -46,6 +52,7 @@ void setup() {
     }
     esp_now_deinit();
   }
+  Serial.flush();
   WiFi.mode(WIFI_OFF);
   // Jitter entre coleiras evita sincronização permanente de colisões.
   esp_sleep_enable_timer_wakeup((uint64_t)ARGOS_INTERVAL_S*1000000ULL + esp_random()%500000);

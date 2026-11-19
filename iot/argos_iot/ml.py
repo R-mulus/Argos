@@ -21,6 +21,10 @@ class ModeloGRU:
             raise ValueError('Metadados GRU inválidos')
         if len(m['receivers']) < 3 or len(set(m['receivers'])) != len(m['receivers']):
             raise ValueError('Receptores GRU inválidos')
+        configuration = m.get('receiver_configuration', {})
+        if set(configuration) != set(m['receivers']):
+            self.status = 'configuracao_nao_validada'
+            return
         for key, size in [('feature_mean', len(m['receivers']) + 2),
                           ('feature_std', len(m['receivers']) + 2), ('xy_mean', 2), ('xy_std', 2)]:
             values = np.asarray(m[key])
@@ -31,6 +35,15 @@ class ModeloGRU:
         import tensorflow as tf
         self.model = tf.keras.models.load_model(path / 'argos_gru.keras', compile=False)
         self.status = 'disponivel'
+
+    def matches_configuration(self, rows):
+        """Não reutilizar uma GRU após mover/recalibrar seus receptores."""
+        expected = (self.meta or {}).get('receiver_configuration', {})
+        keys = ('x_m', 'y_m', 'rssi_1m_dbm', 'expoente_perda')
+        actual = {str(row['receptor_id']): {key: row[key] for key in keys} for row in rows}
+        receivers = (self.meta or {}).get('receivers', [])
+        return bool(receivers) and set(expected) == set(receivers) and all(
+            rx in actual and expected[rx] == actual[rx] for rx in receivers)
 
     def predict(self, history, property_id):
         m = self.meta

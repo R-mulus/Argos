@@ -19,7 +19,6 @@ def test_jobs_replay_receptores_adicionais_e_rls():
         c.execute('INSERT INTO public.animais(id,propriedade_id,identificacao) VALUES (%s,%s,%s)',(animal,prop,'A-teste'))
         c.execute("INSERT INTO public.dispositivos(id,propriedade_id,codigo,tipo) VALUES (%s,%s,'TX','transmissor')",(tx,prop))
         c.execute("INSERT INTO public.vinculos(id,propriedade_id,animal_id,transmissor_id,inicio_em) VALUES (%s,%s,%s,%s,'2020-01-01')",(link,prop,animal,tx))
-        now=datetime.now(timezone.utc)
         for i,(x,y) in enumerate([(0,0),(100,0),(0,100),(100,100)]):
             c.execute("INSERT INTO public.dispositivos(id,propriedade_id,codigo,tipo) VALUES (%s,%s,%s,'receptor')",(rx[i],prop,f'RX-{i}'))
             c.execute('INSERT INTO public.argos_posicoes_receptores VALUES (%s,%s,%s,%s,-50,2,now())',(rx[i],prop,x,y))
@@ -30,6 +29,7 @@ def test_jobs_replay_receptores_adicionais_e_rls():
         def run():
             c.execute("UPDATE public.argos_iot_jobs SET disponivel_em=now() WHERE propriedade_id=%s",(prop,))
             assert process_one(c,ModeloGRU(None))
+        now=datetime.now(timezone.utc)
         insert(0);insert(1);run()
         assert c.execute('SELECT count(*) n FROM public.argos_localizacoes WHERE propriedade_id=%s',(prop,)).fetchone()['n']==0
         insert(2);run()

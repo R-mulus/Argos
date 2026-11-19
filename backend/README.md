@@ -160,7 +160,7 @@ argos/v1/propriedades/<UUID_PROPRIEDADE>/receptores/<UUID_RECEPTOR>/deteccoes
 }
 ```
 
-`transmissor_id` e `receptor_id` são os UUIDs do cadastro Argos; **não são MACs**. `bateria_percentual` é opcional (0–100); `detectado_em` é opcional, aceita ISO 8601 **com fuso horário** e fica `NULL` no banco quando o relógio do ESP32 não é confiável. `recebido_em` é registrado pelo PostgreSQL. O instante da primeira recepção no worker (preservado no SQLite) é usado para o vínculo quando `detectado_em` está ausente, sem fingir que o dispositivo mediu esse horário.
+`transmissor_id` e `receptor_id` são os UUIDs do cadastro Argos; **não são MACs**. `bateria_percentual` é opcional (0–100); `detectado_em` é opcional, aceita ISO 8601 **com fuso horário** e fica `NULL` no banco quando o relógio do ESP32 não é confiável. `recebido_em` é registrado pelo PostgreSQL. O instante da primeira recepção no worker é preservado no SQLite, mas, sem `detectado_em`, a ingestão não atribui vínculo nem zona: um buffer atrasado não prova o cadastro no instante da coleta.
 
 `evento_id` deve ser estável para **o mesmo evento** durante retransmissões: use identificador de boot persistente/único combinado com contador ou UUID por detecção; não gere um ID novo a cada tentativa de envio. É único por receptor, inclusive após reinícios. O broker deve fornecer **QoS 1**, e o consumidor usa sessão persistente com `MQTT_CLIENT_ID` estável. Mensagens retidas não são aceitas. Publicações duplicadas são ignoradas pelo banco.
 
@@ -208,7 +208,7 @@ mosquitto_pub -h 127.0.0.1 -p 1883 -q 1 \
   -m '{"versao":1,"evento_id":"teste-boot-001:1","transmissor_id":"UUID_TRANSMISSOR","rssi_dbm":-65,"bateria_percentual":80}'
 ```
 
-Espere encontrar **um registro** em `public.deteccoes`, com `rssi_dbm=-65`, `recebido_em` preenchido, `detectado_em=NULL`; `zona_id` aponta para a zona ativa (se houver) e `vinculo_id` para o vínculo atual (se houver). Publique **o mesmo tópico e payload** novamente: a contagem não deve aumentar. Utilize `evento_id` diferente para uma nova leitura.
+Espere encontrar **um registro** em `public.deteccoes`, com `rssi_dbm=-65`, `recebido_em` preenchido, `detectado_em=NULL`; `zona_id` e `vinculo_id` ficam nulos nesse exemplo sem horário de detecção. Publique **o mesmo tópico e payload** novamente: a contagem não deve aumentar. Utilize `evento_id` diferente para uma nova leitura.
 
 Casos negativos a verificar: RSSI fora de -127…0; identificadores inexistentes/externos; receptor inativo; versão diferente de 1; tópico de propriedade incorreta; pacote `retain` ou QoS 0. Nenhum deles deve criar detecção.
 
@@ -216,7 +216,7 @@ Casos negativos a verificar: RSSI fora de -127…0; identificadores inexistentes
 
 - O worker grava as leituras individuais. Para a posição e a contagem de animais, consulte o [resumo por zona](#monitoramento-por-zona).
 - Para leituras antigas (mais de 5 minutos), o worker preserva o vínculo histórico, quando compatível, mas não atribui a zona atual do receptor retroativamente: `zona_id = NULL` para evitar falsificar histórico quando houve reassociação de receptor. Um protocolo futuro poderá registrar histórico de zonas.
-- O RSSI permite comparar receptores para estimar a zona. O pipeline GRU continua planejado. A [central de avisos](#central-de-avisos-operacionais) já registra rejeições de cadastro e recuperação da sincronização.
+- O RSSI permite comparar receptores para estimar a zona. A GRU de hábitos com horizonte de 30 dias está implementada como pipeline experimental separado; veja [operação e limitações](../docs/iot/HABITOS.md). Não há modelo mensal treinado com dados reais. A [central de avisos](#central-de-avisos-operacionais) já registra rejeições de cadastro e recuperação da sincronização.
 - Payload inválido gera log. Falhas na escrita local dependem da retransmissão QoS 1 e falhas de acesso ao Supabase mantêm as leituras pendentes. O ensaio automatizado usa um publicador MQTT simulado. A validação com firmware físico e a rede da apresentação continua pendente.
 
 ## Ensaio de monitoramento pelo terminal
@@ -242,7 +242,7 @@ Use Node 22.13 ou posterior com `node:sqlite` disponível. Na raiz, execute `pnp
 
 O arquivo padrão é `backend/data/deteccoes.sqlite`. O worker retém as leituras confirmadas e rejeitadas para inspeção e deduplicação durante a demonstração. Os contadores são acumulados por arquivo. Para usar outro arquivo, configure `MQTT_SQLITE_PATH` com um caminho absoluto em disco local. Mantenha o mesmo arquivo ao reiniciar. Cada ciclo envia até 50 pendências e o próximo começa três segundos após o término do anterior.
 
-O PUBACK do worker ao EMQX vem após a gravação local. Uma indisponibilidade do Supabase mantém a pendência para nova tentativa. Quando o cadastro é inválido, a leitura fica registrada como rejeitada e o motivo aparece no terminal. O status dos dispositivos é conferido na sincronização. Para a apresentação, mantenha os cadastros estáveis e os relógios do notebook e dos dispositivos com hora confiável ajustados. A zona fica vazia se a leitura é antiga ou se a zona ativa foi alterada após o instante de referência, inclusive por uma edição de nome. O vínculo considera o intervalo histórico no instante da detecção ou, quando ausente, na primeira recepção local. No PostgreSQL, `recebido_em` continua indicando a chegada à nuvem.
+O PUBACK do worker ao EMQX vem após a gravação local. Uma indisponibilidade do Supabase mantém a pendência para nova tentativa. Quando o cadastro é inválido, a leitura fica registrada como rejeitada e o motivo aparece no terminal. O status dos dispositivos é conferido na sincronização. Para a apresentação, mantenha os cadastros estáveis e os relógios do notebook e dos dispositivos com hora confiável ajustados. A zona fica vazia se a leitura é antiga ou se a zona ativa foi alterada após o instante de referência, inclusive por uma edição de nome. O vínculo considera o intervalo histórico no instante da detecção; na ausência desse horário, fica nulo. No PostgreSQL, `recebido_em` continua indicando a chegada à nuvem.
 
 Para repetir o teste de integração automatizado, use um broker **isolado** em loopback, sem autenticação e sem outros workers Argos. Defina `ARGOS_TEST_MQTT_URL` para sua URL local com porta e execute `pnpm --dir backend exec tsx --test tests/integracao/mqtt-offline.ts`. O teste inicia o worker real com SQLite temporário e uma API HTTP simulada, envia mensagens QoS 1 e interrompe o processo com pendências.
 

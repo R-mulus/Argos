@@ -48,6 +48,22 @@ def test_sem_modelo_nao_fabrica_predicao():
     model=ModeloGRU(None)
     assert model.predict([], 'p') is None
 
+def test_manifesto_exige_mesma_geometria_e_calibracao():
+    model=ModeloGRU(None)
+    row=dict(receptor_id='rx',x_m=0,y_m=0,rssi_1m_dbm=-50,expoente_perda=2)
+    model.meta={'receivers':['rx']}
+    assert not model.matches_configuration([row])
+    model.meta['receiver_configuration']={'rx':{k:v for k,v in row.items() if k!='receptor_id'}}
+    assert model.matches_configuration([row])
+    assert not model.matches_configuration([{**row,'x_m':1}])
+
+def test_calibracao_posterior_nao_reinterpreta_evento_antigo():
+    rows=readings()
+    rows[0]['calibracao_em']=NOW+timedelta(seconds=1)
+    assert localizar(rows)[1]=='calibracao_posterior'
+    rows[0]['calibracao_em']=NOW
+    assert localizar(rows)[1]=='localizado'
+
 def test_inferencia_rejeita_lacunas_propriedade_e_receptores():
     model=ModeloGRU(None)
     model.meta=dict(property_id='p',steps=2,interval_s=30,receivers=['1','2','3'],

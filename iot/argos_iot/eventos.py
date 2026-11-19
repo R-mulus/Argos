@@ -11,6 +11,9 @@ def localizar(rows):
     dates = [r['detectado_em'] for r in rows]
     if any(d is None for d in dates):
         return None, 'sem_horario'
+    # Sem histórico de calibração, a configuração nova não explica um evento antigo.
+    if any(r.get('calibracao_em') and r['calibracao_em'] > r['detectado_em'] for r in rows):
+        return None, 'calibracao_posterior'
     if (max(dates) - min(dates)).total_seconds() > 2:
         return None, 'horarios_incompativeis'
     animals = {r['animal_id'] for r in rows}

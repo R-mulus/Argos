@@ -1,3 +1,7 @@
+# Previsão mensal por hábitos e EMQX
+
+A implementação de hábitos por zona, sem trilateração, está em [HABITOS.md](../docs/iot/HABITOS.md). A conexão com EMQX Cloud/local está em [EMQX.md](../docs/iot/EMQX.md). As seções abaixo descrevem o pipeline anterior experimental de coordenadas e classificação.
+
 # Backend IoT do Argos
 
 Implementação derivada do MVP anexado: reutiliza a trilateração NumPy e evolui a GRU supervisionada. A base desta integração é `dev` em `8b241f5e5f8fae849336755988c048fcb1528e02`, não a `main` mais antiga. A API FastAPI/HTTP do anexo não deve rodar como segundo escritor de detecções: a ingestão canônica continua sendo o worker MQTT TypeScript do colaborador.
@@ -33,7 +37,7 @@ python -m argos_iot.worker
 A URL Python usa `postgresql://`, pois a conexão agora é psycopg direta. Não usa URL HTTPS do Supabase nem `postgresql+psycopg://`. Use TLS e credencial interna de servidor com acesso às tabelas; não coloque credenciais no frontend/firmware. O processo não cria tabelas no startup. `SIGINT`/`SIGTERM` encerram entre trabalhos; jobs sobrevivem a reinícios. Para execução contínua, configure serviço com reinício automático no sistema operacional.
 
 4. Cadastre dispositivos/animais/vínculos pelas rotas já existentes. UUIDs de exemplos do firmware devem ser conferidos antes de gravar. Cadastre coordenadas pela nova rota autenticada. Veja `../docs/iot/CONTRATOS.md`.
-5. Configure firmware conforme `../firmware/README.md`. Primeiro valide uma leitura, depois três receptores e só então os modelos.
+5. Configure firmware conforme `../firmware/LEIA_ME.md`. Primeiro valide uma leitura, depois três receptores e só então os modelos.
 
 ## Localização e recuperação
 
@@ -92,3 +96,12 @@ python -m pytest -q
 ```
 
 Testes cobrem agrupamento, receptores extras, erro sintético conhecido, geometria, vínculo, horário, ausência de modelo, isolamento de features e partições temporais. `test_postgres.py` verifica jobs, atualização tardia, duplicatas e RLS em PostgreSQL real de teste. Ver registro de execução em `../docs/iot/VALIDACAO.md`.
+
+## Auditoria de 19/11/2026
+
+A configuração local PostgreSQL foi validada somente por leitura. A migração
+IoT já está aplicada no Supabase; não reaplicá-la. Veja [operação](../docs/iot/OPERACAO.md)
+e [auditoria](../docs/iot/AUDITORIA_2026-11-19.md).
+O worker agora rejeita calibração posterior à captura (`calibracao_posterior`).
+GRU exige `receiver_configuration` no manifesto e igualdade com a geometria e
+calibração atuais; manifesto ausente/incompleto não gera previsões.

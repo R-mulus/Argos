@@ -1,11 +1,12 @@
 #pragma once
-// Mesmo sketch em S3, DevKit V1 e ESP32-U; altere identidade por equipamento.
+// Mesmo sketch para ESP32-S3, DevKit V1 e ESP32 classico com antena externa.
+// Para outro receptor, altere APENAS ARGOS_DEVICE_UUID em ArgosDevice.h.
+#include "ArgosDevice.h"
 #define ARGOS_PROPERTY_UUID "8da8c584-e51b-4b99-808d-8cf55cee7674"
-#define ARGOS_RECEIVER_UUID "9b3cc23c-7c82-4105-96ad-9e6ee7d7c607"
-#define ARGOS_WIFI_CHANNEL 6
-#define ARGOS_NTP_SERVER "192.168.1.100" // NTP local para operar sem internet.
+#define ARGOS_WIFI_CHANNEL 2
+#define ARGOS_NTP_SERVER "pool.ntp.org" // Para rede sem internet, troque por NTP LOCAL funcional.
 #define ARGOS_MQTT_PORT 8883
-#define ARGOS_LOCAL_PLAINTEXT 0 // Somente laboratório em LAN isolada: 1, porta 1883.
+#define ARGOS_LOCAL_PLAINTEXT 0 // EMQX Cloud: TLS. Ensaio LAN isolado: 1 + porta 1883.
 #define ARGOS_FORMAT_FLASH 0 // 1 apenas no provisionamento inicial; voltar a 0.
 #define ARGOS_MAX_FILES 512
 #define ARGOS_OLED 0
@@ -21,4 +22,13 @@
 #define ARGOS_MQTT_USER ""
 #define ARGOS_MQTT_PASS ""
 #define ARGOS_MQTT_CA ""
+#endif
+static_assert(ARGOS_WIFI_CHANNEL >= 1 && ARGOS_WIFI_CHANNEL <= 13, "Canal inválido");
+static_assert(ARGOS_MAX_FILES > 0, "Fila precisa de capacidade positiva");
+
+#ifndef ARGOS_NTP_FALLBACK_1
+#define ARGOS_NTP_FALLBACK_1 "time.google.com"
+#endif
+#ifndef ARGOS_NTP_FALLBACK_2
+#define ARGOS_NTP_FALLBACK_2 "time.cloudflare.com"
 #endif

@@ -25,7 +25,8 @@ def process_one(conn, model):
         try:
             # Savepoint: falha parcial nunca confirma localização sem marcar retry.
             with conn.transaction():
-                rows = conn.execute("""SELECT d.*, p.x_m,p.y_m,p.rssi_1m_dbm,p.expoente_perda,v.animal_id
+                rows = conn.execute("""SELECT d.*, p.x_m,p.y_m,p.rssi_1m_dbm,p.expoente_perda,
+                    p.atualizado_em AS calibracao_em,v.animal_id
                   FROM public.deteccoes d JOIN public.argos_posicoes_receptores p
                     ON p.receptor_id=d.receptor_id AND p.propriedade_id=d.propriedade_id
                   LEFT JOIN public.vinculos v ON v.id=d.vinculo_id AND v.propriedade_id=d.propriedade_id
@@ -63,6 +64,11 @@ def process_one(conn, model):
 
 def infer(conn, model, key, position):
     if model.model is None:
+        return
+    configuration = conn.execute("""SELECT receptor_id,x_m,y_m,rssi_1m_dbm,expoente_perda
+      FROM public.argos_posicoes_receptores WHERE propriedade_id=%s""", (key[0],)).fetchall()
+    if not model.matches_configuration(configuration):
+        logging.warning('GRU não corresponde à configuração dos receptores; inferência suspensa')
         return
     history = conn.execute("""SELECT l.*,
       (SELECT jsonb_object_agg(d.receptor_id::text,d.rssi_dbm) FROM public.deteccoes d

@@ -22,7 +22,7 @@ export const salvarCoordenadas: RequestHandler = async (req, res) => {
 };
 
 // Usa cliente do usuário + RLS; não aceita propriedade arbitrária do navegador.
-export function listarDadosIoT(table: 'argos_localizacoes' | 'argos_predicoes' | 'argos_posicoes_receptores'): RequestHandler {
+export function listarDadosIoT(table: 'argos_localizacoes' | 'argos_predicoes' | 'argos_posicoes_receptores' | 'argos_previsoes_habitos'): RequestHandler {
   return async (req, res) => {
     const auth = getAuth(res);
     const propriedade = await requirePropriedade(auth);

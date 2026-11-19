@@ -17,6 +17,7 @@ class FakeRepo implements RepositorioDeteccoes {
   zonaLookups = 0;
   failInsert = false;
   failCommunication = false;
+  zona: { id: string } | null = { id: 'zona-1' };
   async buscarDispositivo(propriedadeId: string, id: string) {
     if (propriedadeId !== evento.propriedadeId) return null;
     if (id === evento.receptorId) return { id, tipo: 'receptor', status: this.receptorAtivo ? 'ativo' : 'inativo' };
@@ -27,7 +28,7 @@ class FakeRepo implements RepositorioDeteccoes {
   }
   async buscarZonaAtiva(_p: string, _r: string) {
     this.zonaLookups++;
-    return { id: 'zona-1' };
+    return this.zona;
   }
   async buscarVinculoNoInstante(_p: string, _t: string, _d: string) { return this.vinculo; }
   async inserirSeInedita(row: DetecaoPersistida) {
@@ -97,4 +98,20 @@ test('buffer sem relógio não assume animal, zona nem transmissão recente', as
   assert.equal(repo.detecoes[0].zona_id, null);
   assert.equal(repo.detecoes[0].detectado_em, null);
   assert.deepEqual(repo.comunicações, [evento.receptorId]);
+});
+test('receptor sem zona e transmissor sem vínculo preservam diagnóstico', async () => {
+  const repo = new FakeRepo(); repo.zona = null; repo.vinculo = null;
+  await processarDeteccao(repo, evento);
+  assert.equal(repo.detecoes[0].zona_id, null);
+  assert.equal(repo.detecoes[0].vinculo_id, null);
+});
+test('fim do vínculo é exclusivo e a janela de zona termina em cinco minutos', async () => {
+  const repo = new FakeRepo();
+  repo.vinculo = { id: 'encerrado', inicio_em: '2020-01-01T00:00:00Z', fim_em: evento.detectadoEm };
+  await processarDeteccao(repo, evento);
+  assert.equal(repo.detecoes[0].vinculo_id, null);
+  const late = new FakeRepo();
+  await processarDeteccao(late, { ...evento, detectadoEm: '2026-11-11T14:54:59.999Z' });
+  assert.equal(late.zonaLookups, 0);
+  assert.deepEqual(late.comunicações, [evento.receptorId]);
 });

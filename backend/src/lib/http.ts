@@ -21,6 +21,11 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _ne
   }
   const dbCode = typeof error === 'object' && error !== null && 'code' in error
     ? String(error.code) : undefined;
+  if (dbCode === 'PGRST205' || dbCode === '42P01' || dbCode === 'PGRST002') {
+    res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE',
+      message: 'Recurso temporariamente indisponível. Confira o serviço e as migrações do banco.' } });
+    return;
+  }
   if (dbCode === '23505' || dbCode === '23P01') {
     res.status(409).json({ error: { code: 'CONFLICT', message: 'Registro duplicado ou período de vínculo conflitante.' } });
     return;

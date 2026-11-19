@@ -23,6 +23,7 @@ test('MQTT v1 extrai propriedade e receptor do tópico e guarda horários distin
   }), now).detectadoEm, '2026-11-10T16:00:00.000Z');
 });
 test('rejeita identificações, RSSI, bateria, JSON ou horários inválidos', () => {
+  assert.throws(() => parseDeteccaoMqtt(topic.replace('deteccoes', 'detecções'), bytes(base), now), /Tópico/);
   assert.throws(() => parseDeteccaoMqtt(topic + '/extra', bytes(base), now), /Tópico/);
   assert.throws(() => parseDeteccaoMqtt(topic, bytes({ ...base, versao: 2 }), now), /versao/);
   assert.throws(() => parseDeteccaoMqtt(topic, bytes({ ...base, evento_id: '' }), now), /evento_id/);
@@ -46,4 +47,13 @@ test('worker exige chave secreta e conexão criptografada fora do localhost', ()
     ...env, MQTT_URL: 'mqtt://127.0.0.1:1883', MQTT_ALLOW_INSECURE_LOCAL: 'true',
     MQTT_USERNAME: '', MQTT_PASSWORD: '',
   }).mqttUrl, 'mqtt://127.0.0.1:1883');
+});
+test('Docker exige liberação explícita por host e produção recusa TCP sem TLS', () => {
+  const env = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SECRET_KEY: 'sb_secret_test',
+    MQTT_URL: 'mqtt://emqx:1883', MQTT_CLIENT_ID: 'teste', MQTT_USERNAME: 'worker',
+    MQTT_PASSWORD: 'teste', MQTT_ALLOW_INSECURE_LOCAL: 'true', MQTT_INSECURE_HOST: 'emqx' };
+  assert.equal(loadMqttWorkerConfig(env).mqttUrl, env.MQTT_URL);
+  assert.throws(() => loadMqttWorkerConfig({ ...env, MQTT_INSECURE_HOST: '' }), /mqtts/);
+  assert.throws(() => loadMqttWorkerConfig({ ...env, NODE_ENV: 'production' }), /mqtts/);
+  assert.throws(() => loadMqttWorkerConfig({ ...env, MQTT_USERNAME: '' }), /obrigatórios/);
 });

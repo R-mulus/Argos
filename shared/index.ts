@@ -110,6 +110,17 @@ export interface LocalizacaoIoT {
   calculado_em: string;
 }
 
+/** Frações previstas de observações por zona; dias UTC, não comportamento medido. */
+export interface PrevisaoHabitos {
+  id: string;
+  propriedade_id: string;
+  animal_id: string;
+  observado_em: string;
+  modelo_versao: string;
+  previsoes: Array<{ dia: string; proporcoes: Record<string, number> }>;
+  criado_em: string;
+}
+
 export interface PredicaoIoT {
   id: string;
   propriedade_id: string;

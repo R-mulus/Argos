@@ -27,16 +27,18 @@ export function loadMqttWorkerConfig(env: NodeJS.ProcessEnv = process.env): Mqtt
   try { url = new URL(mqttUrl); } catch { throw new Error('MQTT_URL inválida.'); }
   const encrypted = ['mqtts:', 'wss:'].includes(url.protocol);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const developmentHost = local || (env.NODE_ENV !== 'production' &&
+    !!env.MQTT_INSECURE_HOST && url.hostname === env.MQTT_INSECURE_HOST);
   if (!encrypted && !(url.protocol === 'mqtt:' &&
-    env.MQTT_ALLOW_INSECURE_LOCAL === 'true' && local)) {
-    throw new Error('Use mqtts:// ou wss://; mqtt:// só é permitido no loopback local.');
+    env.NODE_ENV !== 'production' && env.MQTT_ALLOW_INSECURE_LOCAL === 'true' && developmentHost)) {
+    throw new Error('Use mqtts:// ou wss://; mqtt:// exige desenvolvimento e host local explicitamente autorizado.');
   }
   if (url.username || url.password) {
     throw new Error('Não coloque usuário/senha na MQTT_URL; use MQTT_USERNAME e MQTT_PASSWORD.');
   }
   const mqttUsername = env.MQTT_USERNAME?.trim() || undefined;
   const mqttPassword = env.MQTT_PASSWORD || undefined;
-  if ((!mqttUsername || !mqttPassword) && !(local && env.MQTT_ALLOW_INSECURE_LOCAL === 'true')) {
+  if ((!mqttUsername || !mqttPassword) && !(local && env.NODE_ENV !== 'production' && env.MQTT_ALLOW_INSECURE_LOCAL === 'true')) {
     throw new Error('MQTT_USERNAME e MQTT_PASSWORD são obrigatórios fora do ambiente local.');
   }
   return { supabaseUrl, supabaseSecretKey, mqttUrl, mqttClientId, mqttUsername, mqttPassword };

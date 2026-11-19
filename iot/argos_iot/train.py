@@ -92,7 +92,7 @@ def train(args):
         receivers=args.receivers, labels=LABELS, feature_mean=mean.tolist(), feature_std=std.tolist(),
         xy_mean=origin.tolist(), xy_std=scale.tolist(), metrics=metrics,
         partitions=[len(s) for s in splits], parameters=model.count_params(),
-        aprovado=False,
+        aprovado=False, receiver_configuration={},
         supera_baselines=metrics['current_mae_m'] < metrics['rssi_mae_m'] and metrics['next_mae_m'] < metrics['persistence_mae_m'])
     (out / 'metadata.json').write_text(json.dumps(meta, indent=2), encoding='utf-8')
     print('Modelo experimental salvo. Aprovação requer avaliação de campo; ver README.')

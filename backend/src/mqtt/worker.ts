@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:http';
 import { FilaDeteccoes } from './fila.js';
 import { sincronizarLote } from './sincronizacao.js';
 import { createClient } from '@supabase/supabase-js';
@@ -20,6 +21,19 @@ const fila = new FilaDeteccoes(process.env.MQTT_SQLITE_PATH ||
 console.info(fila.resumo());
 let encerrando = false;
 let timer: NodeJS.Timeout;
+let bancoDisponivel = false;
+let assinaturaAtiva = false;
+let sincronizacaoAtual: Promise<void> = Promise.resolve();
+const healthPort = Number(process.env.MQTT_HEALTH_PORT || 0);
+if (!Number.isInteger(healthPort) || healthPort < 0 || healthPort > 65535) {
+  throw new Error('MQTT_HEALTH_PORT deve ser uma porta válida (0 desativa).');
+}
+const health = healthPort ? createServer((_req, res) => {
+  const pronto = assinaturaAtiva && bancoDisponivel && !encerrando;
+  res.writeHead(pronto ? 200 : 503, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: pronto ? 'pronto' : 'degradado',
+    mqtt: assinaturaAtiva, sincronizacao: bancoDisponivel, fila: fila.resumo() }));
+}).listen(healthPort, '127.0.0.1') : undefined;
 async function sincronizar() {
   try {
     const total = await sincronizarLote(fila,
@@ -27,12 +41,15 @@ async function sincronizar() {
       (evento, motivo) => repositorio.registrarRejeicao(evento, motivo),
       lote => repositorio.registrarSincronizacao(lote));
     if (total) console.info(fila.resumo());
+    // Sem eventos não há consulta remota que comprove disponibilidade do banco.
+    if (total) bancoDisponivel = true;
   } catch {
+    bancoDisponivel = false;
     console.warn('Sincronização interrompida. Confira a rede e o acesso ao Supabase.', fila.resumo());
   }
-  if (!encerrando) timer = setTimeout(sincronizar, 3000);
+  if (!encerrando) timer = setTimeout(() => { sincronizacaoAtual = sincronizar(); }, 3000);
 }
-void sincronizar();
+sincronizacaoAtual = sincronizar();
 
 const client = connect(config.mqttUrl, {
   clientId: config.mqttClientId,
@@ -81,19 +98,24 @@ client.on('connect', () => {
       return;
     }
     console.info('Assinatura QoS 1 ativa.');
+    assinaturaAtiva = true;
   });
 });
 client.on('error', (error) => console.error('Erro na conexão MQTT:', error.message));
 client.on('offline', () => console.warn('Worker MQTT desconectado; tentando reconectar.'));
+client.on('close', () => { assinaturaAtiva = false; });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     if (encerrando) return;
     encerrando = true;
     clearTimeout(timer);
+    health?.close();
     void client.endAsync(false).finally(() => {
-      fila.fechar();
-      process.exit(0);
+      void sincronizacaoAtual.finally(() => {
+        fila.fechar();
+        process.exit(0);
+      });
     });
   });
 }
