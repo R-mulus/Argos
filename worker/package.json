@@ -1,0 +1,30 @@
+{
+  "name": "argos-iot-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0 <25" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env dist/src/index.js",
+    "dev": "node --env-file-if-exists=.env --import tsx src/index.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "test:integration": "tsx tests/integration.ts",
+    "provision": "tsx scripts/provision.ts",
+    "provision:sync": "tsx scripts/sync-users.ts",
+    "check:database": "node --env-file-if-exists=.env --import tsx scripts/check-database.ts",
+    "check:mqtt": "node --env-file-if-exists=.env --import tsx scripts/check-mqtt.ts",
+    "queue": "node --env-file-if-exists=.env --import tsx scripts/queue.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.2",
+    "mqtt": "5.16.1",
+    "proper-lockfile": "4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/proper-lockfile": "4.1.4",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

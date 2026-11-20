@@ -1,0 +1,17 @@
+**/ArgosSecrets.h
+**/ArgosDevice.local.h
+.build/
+.tools/
+__pycache__/
+*.bin
+*.elf
+*.map
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+broker/private/
+worker/data/
+*.sqlite*
+*.lock/

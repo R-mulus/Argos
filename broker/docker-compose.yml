@@ -1,0 +1,34 @@
+name: argos-iot
+services:
+  emqx:
+    image: emqx/emqx-enterprise:6.3.2
+    hostname: argos-emqx
+    restart: unless-stopped
+    environment:
+      EMQX_NODE__NAME: emqx@argos-emqx
+      EMQX_NODE__COOKIE: ${EMQX_NODE_COOKIE:?Execute o provisionamento}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:?Execute o provisionamento}
+    ports:
+      - '${MQTT_BIND_HOST:-127.0.0.1}:${MQTT_HOST_PORT:-1883}:1883'
+      - '127.0.0.1:${MQTT_DASHBOARD_PORT:-18083}:18083'
+    volumes:
+      - ./config/emqx.conf:/opt/emqx/etc/emqx.conf:ro
+      - ./private/users.json:/opt/emqx/etc/argos-users.json:ro
+      - ./private/acl.conf:/opt/emqx/etc/argos-acl.conf:ro
+      - emqx-data:/opt/emqx/data
+      - emqx-log:/opt/emqx/log
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:18083/status']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+volumes:
+  emqx-data:
+  emqx-log:
