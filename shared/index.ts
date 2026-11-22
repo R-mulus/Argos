@@ -115,9 +115,12 @@ export interface PredicaoIoT {
   propriedade_id: string;
   animal_id: string;
   evento_id: string | null;
-  comportamento: string;
-  confianca: number;
-  probabilidades: Record<string, number>;
+  /** Nulo quando o modelo não classifica comportamento (GRU de posição). Nunca inventar classe. */
+  comportamento: string | null;
+  /** Confiança da classe prevista, 0 a 1; não é acurácia do modelo. */
+  confianca: number | null;
+  /** Distribuição das classes previstas no instante futuro (soma 1), não tempo observado. */
+  probabilidades: Record<string, number> | null;
   atual_x_m: number | null;
   atual_y_m: number | null;
   proximo_x_m: number | null;

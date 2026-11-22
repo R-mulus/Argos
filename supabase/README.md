@@ -31,3 +31,13 @@ As migrações seguintes adicionam pesagens manuais, exportação CSV, central d
 ## Carga de demonstração
 
 `seeds/demonstracao.sql` cria, na propriedade "Fazenda Experimental", 48 animais `DEMO-xxx`, coleiras, vínculos, 6 zonas e receptores `DEMO · …`, 30 dias de histórico até o dia anterior, cinco pesagens semanais e 8 avisos simulados. Os IDs seguem o formato de UUID exigido pela API. Cada execução acrescenta um lote de leituras recentes e completa o histórico dos dias que faltam, sem duplicar o resto. As leituras recentes valem por 5 minutos no monitoramento. `seeds/demonstracao_remover.sql` apaga apenas os registros da carga. Execute os dois manualmente, como administrador, no SQL Editor. Nunca coloque dados de demonstração em migrações.
+
+## Migrações de 19 a 22/11/2026 (aplicadas no projeto hospedado)
+
+`20261119154550_argos_resumo_horario_captura.sql` foi aplicada no projeto hospedado a partir da branch `backend-iot` e versionada na `dev` em 22/11. O `resumo_monitoramento` passa a usar só `detectado_em` (horário de captura): o recebimento não torna recente uma leitura antiga.
+
+`20261122184335_argos_zona_historica_deteccoes.sql` cria o trigger `deteccoes_atribuir_zona_historica`: na inserção, uma detecção sem zona recebe a zona ativa do receptor quando ela não foi alterada depois de `detectado_em`. Sem horário, sem zona. Vale para qualquer worker de ingestão. `manutencao/20261122_preencher_zona_historica.sql` aplica a mesma regra às detecções antigas e **não foi executado**.
+
+`20261122184338_argos_predicoes_sem_comportamento.sql` permite `comportamento`, `confianca` e `probabilidades` nulos em `argos_predicoes` (modelo de posição sem classificação).
+
+`testes/zona_historica.sql` cobre os casos do trigger, o preenchimento e a contagem no resumo, num PostgreSQL local. O `pg_cron` de `20261118113726` não existe fora do Supabase: no teste local, crie `cron.schedule` simulado e ignore o `create extension pg_cron`. Ver [docs/integracao/ML_BACKEND.md](../docs/integracao/ML_BACKEND.md).
