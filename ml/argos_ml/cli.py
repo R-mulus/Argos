@@ -34,6 +34,7 @@ def main():
     k.add_argument('--since',required=True); k.add_argument('--until',required=True)
     k.add_argument('--period',choices=['dia','semana','mes'],default='dia'); k.add_argument('--out',required=True)
     sub.add_parser('audit')
+    sub.add_parser('reference')
     backfill = sub.add_parser('requeue')
     backfill.add_argument('--since',required=True); backfill.add_argument('--until',required=True)
     args = p.parse_args()
@@ -74,6 +75,12 @@ def main():
         if len(identities)!=1: raise ValueError('Selecione histórico de um animal/transmissor')
         prediction=model.predict(rows,next(iter(identities))[0])
         print(json.dumps({'status':model.status,'previsao':prediction},indent=2))
+    elif args.command=='reference':
+        from .provenance import calibration_hash
+        db=Database.environment()
+        coords=db.rows('argos_posicoes_receptores',order='receptor_id')
+        print(json.dumps({'calibration_sha256':calibration_hash(coords,db.property_id),
+                          'validated':False,'aviso':'Hash identifica configuração, não comprova validação física.'}))
     elif args.command=='audit':
         db=Database.environment()
         counts={table:len(db.rows(table,select=key,order=key)) for table,key in [

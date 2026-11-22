@@ -5,11 +5,14 @@ import os
 import signal
 import sqlite3
 import threading
+import time
+from collections import Counter
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from .database import Database, DatabaseError
 from .localization import localize, InvalidEvent
 from .inference import Predictor
+from .provenance import operational_reference, worker_lock, CalibrationError
 
 
 class Outbox:
@@ -25,10 +28,23 @@ class Outbox:
                               (prediction['id'],json.dumps(prediction,allow_nan=False)))
 
     def flush(self, db):
+        failure = None
         for identifier,payload in self.conn.execute('SELECT id,payload FROM predictions ORDER BY id LIMIT 50').fetchall():
-            db.upsert('argos_predicoes',json.loads(payload),'propriedade_id,animal_id,evento_id,modelo_versao')
+            row = json.loads(payload)
+            if row['propriedade_id'] != db.property_id:
+                continue
+            try:
+                db.upsert('argos_predicoes',row,'propriedade_id,animal_id,evento_id,modelo_versao')
+            except DatabaseError as error:
+                failure = error
+                continue
             with self.conn:
                 self.conn.execute('DELETE FROM predictions WHERE id=?',(identifier,))
+        if failure:
+            raise failure
+
+    def depth(self):
+        return self.conn.execute('SELECT count(*) FROM predictions').fetchone()[0]
 
 
 def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=None, links=None):
@@ -48,6 +64,8 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
     if not write:
         return 'localizavel_sem_gravar'
     db.upsert('argos_localizacoes',position,'propriedade_id,transmissor_id,evento_id')
+    logging.info('localizacao_qualidade: %s',json.dumps({'rms_m':position['erro_residual_m'],
+        'receptores':position['receptores_utilizados']}))
     # Uma falha da IA não desfaz nem bloqueia a localização.
     if position['animal_id'] and position['observado_em']:
         for predictor in predictors:
@@ -79,6 +97,14 @@ def run(once=False, min_receivers=None):
     db = Database.environment()
     if not write and not once:
         raise ValueError('Use --once para auditoria sem escrita')
+    if write:
+        operational_reference(db.rows('argos_posicoes_receptores',order='receptor_id'),db.property_id)
+        with worker_lock(db.property_id):
+            return _poll(db,write,once)
+    return _poll(db,write,once)
+
+
+def _poll(db, write, once):
     predictors = [Predictor(os.getenv(k)) for k in ('ARGOS_MODEL_DIR','ARGOS_BEHAVIOR_MODEL_DIR')]
     logging.info('modelos: %s',[p.status for p in predictors])
     outbox = Outbox(os.getenv('ARGOS_STATE_PATH','data/state.sqlite')) if write else None
@@ -86,6 +112,8 @@ def run(once=False, min_receivers=None):
     for sig in (signal.SIGINT,signal.SIGTERM):
         signal.signal(sig,lambda *_: stop.set())
     while not stop.is_set():
+        started = time.perf_counter()
+        counts = Counter()
         try:
             coordinates = None
             links_by_tx = {}
@@ -93,11 +121,20 @@ def run(once=False, min_receivers=None):
                 try:
                     if coordinates is None:
                         coordinates = db.rows('argos_posicoes_receptores',order='receptor_id')
+                        if write:
+                            operational_reference(coordinates,db.property_id)
                     tx = job['transmissor_id']
                     if tx not in links_by_tx:
                         links_by_tx[tx] = db.rows('vinculos',transmissor_id='eq.'+tx)
-                    logging.info('localizacao: %s',process_job(db,job,write,predictors,outbox,coordinates,links_by_tx[tx]))
+                    state = process_job(db,job,write,predictors,outbox,coordinates,links_by_tx[tx])
+                    counts[state] += 1
+                    logging.info('localizacao: %s',state)
+                except CalibrationError:
+                    # Calibração mudou: não confirmar, reagendar nem gravar neste ciclo.
+                    logging.error('calibracao_alterada_worker_interrompido')
+                    raise
                 except Exception:
+                    counts['falha_temporaria'] += 1
                     logging.warning('job_falhou_retry_preservado')
                     if write:
                         attempts = job['tentativas']+1
@@ -110,6 +147,9 @@ def run(once=False, min_receivers=None):
                     logging.warning('predicoes_preservadas_na_outbox_verifique_schema_e_conexao')
         except DatabaseError:
             logging.warning('banco_indisponivel_fila_preservada')
+        logging.info('worker_metricas: %s',json.dumps({'resultados':dict(counts),
+            'latencia_ciclo_ms':round((time.perf_counter()-started)*1000,2),
+            'outbox_pendente':outbox.depth() if outbox else 0,'escrita':write}))
         if once:
             return
         stop.wait(max(1,float(os.getenv('ARGOS_POLL_SECONDS','5'))))

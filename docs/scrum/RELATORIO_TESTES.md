@@ -9,3 +9,5 @@ A auditoria anterior confirmou 101 cálculos numéricos em modo somente leitura.
 ## S2–S10
 
 Resultados serão registrados após execução. Build/testes do frontend/backend ainda não executados nesta entrega.
+
+S2: `pytest tests/test_provenance.py tests/test_database.py tests/test_diagnostics.py -q`: **23 passaram** (0,88 s). Inclui exclusão mútua/liberação, calibração modificada, bloqueio experimental, recuperação de outbox sem impedir outro animal e modo GET. Banco real não modificado.

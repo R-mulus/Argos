@@ -60,7 +60,7 @@ def test_write_failure_does_not_ack(beacon):
 def test_outbox_survives_restart(tmp_path):
     path=tmp_path/'state.sqlite'
     box=Outbox(path);box.add(dict(id='one',propriedade_id=P))
-    db=Mock();db.upsert.side_effect=DatabaseError('offline')
+    db=Mock(property_id=P);db.upsert.side_effect=DatabaseError('offline')
     with pytest.raises(DatabaseError):box.flush(db)
     box.conn.close()
     resumed=Outbox(path);db.upsert.side_effect=None

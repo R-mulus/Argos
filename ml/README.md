@@ -91,14 +91,18 @@ fotografia aproximada das consultas; uma nova execução pode encontrar leituras
 As coordenadas genéricas de desenvolvimento não validam posições reais nem modelos de produção.
 Veja [resultados do diagnóstico](docs/DIAGNOSTICO_JOBS.md).
 
-Depois de conferir que a calibração é real, configure `ARGOS_WRITE_ENABLED=1` no `.env` e execute:
+Depois de validar fisicamente a calibração, configure no `.env` `ARGOS_DATA_ORIGIN=real`,
+`ARGOS_CALIBRATION_VALIDATED=1`, `ARGOS_REFERENCE_VERSION` e `ARGOS_CALIBRATION_SHA256`
+(hash exibido pelo comando `reference`). Somente então habilite `ARGOS_WRITE_ENABLED=1` e execute:
 
 ```powershell
 .\.venv\Scripts\python.exe -m argos_ml.cli worker
 ```
 
 Interrompa com Ctrl+C. Rode **uma instância por propriedade** e não execute simultaneamente o worker
-Python legado de dev. A fila existente `argos_iot_jobs`, alimentada por trigger em `deteccoes`,
+Python legado de dev. O lock em `ARGOS_LOCK_DIR` impede duas instâncias no mesmo host/diretório;
+não é uma reserva distribuída. Não opere workers em hosts diferentes para a mesma propriedade.
+Mudança na calibração invalida o hash e bloqueia escrita. A fila existente `argos_iot_jobs`, alimentada por trigger em `deteccoes`,
 funciona como checkpoint persistente. O worker não varre indefinidamente o histórico.
 Upsert usa o índice de evento existente; UUID determinístico e ACK condicional à versão do job
 permitem retomar após falhas. Se outro receptor chegar, o trigger reabre o job. Leituras tardias

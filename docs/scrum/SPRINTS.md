@@ -17,3 +17,9 @@ Risco: geometria genérica e calibração provisória. Validação física perma
 ## S2–S10
 
 Em desenvolvimento. Cada conclusão exige testes e evidência no relatório; a prontidão operacional não será inferida dos testes sintéticos.
+
+### S2 — concluída tecnicamente, operação em um host
+
+História: impedir gravação experimental e recuperar falhas. Entrega: guarda de origem real/validação administrativa/hash/referencial, lock de propriedade liberado pelo SO, métricas por ciclo (resultados/latência/outbox), ACK e upsert existentes preservados. Outbox tenta outros registros após falha individual.
+
+Evidência: 23 testes de proveniência, banco e diagnóstico aprovados. Arquivos: `provenance.py`, `worker.py`, `.env.example`, CLI `reference`, testes e README. Risco: não suporta workers concorrentes em hosts diferentes; exige mesmo diretório de locks. Nenhuma escrita real habilitada. Próxima: origem e integridade de datasets (S3).
