@@ -48,8 +48,11 @@ export async function processarDeteccao(
   const instante = evento.detectadoEm ?? evento.recebidoEm;
   const recenciaMs = Date.parse(evento.recebidoEm) - Date.parse(instante);
   const recente = evento.detectadoEm !== null && recenciaMs >= -60_000 && recenciaMs <= 5 * 60_000;
+  // Zona também vale para leitura atrasada (fila do receptor ou do gateway): o repositório só
+  // devolve a zona se ela não foi alterada depois da detecção (zonas.updated_at <= instante),
+  // então a associação receptor→zona é a mesma que valia no momento observado.
   const [zona, vinculo] = await Promise.all([
-    recente
+    evento.detectadoEm !== null
       ? repositorio.buscarZonaAtiva(evento.propriedadeId, evento.receptorId, instante)
       : Promise.resolve(null),
     evento.detectadoEm !== null

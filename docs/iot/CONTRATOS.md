@@ -11,7 +11,7 @@ Tópico ASCII, sem acento:
 
 Use UUIDs válidos, QoS1 e `retain=false`. Repetições do mesmo beacon em todos os receptores compartilham `evento_id`; não gerar ID aleatório em cada receptor. O pacote ESP-NOW é v2 binário; o JSON MQTT continua v1. O broker deve restringir cada usuário ao tópico exato de seu receptor. HMAC protege o beacon com segredo por propriedade, mas não cifra o broadcast e não fornece relógio seguro contra replay de um evento ainda desconhecido. Dispositivos provisionados com mesmo segredo são uma mesma fronteira de confiança.
 
-`detectado_em` é a hora da recepção no ESP32, não a hora do upload. Sem NTP válido será `null`; o backend preserva a detecção para diagnóstico sem atribuir vínculo/zona atuais. `recebido_no_gateway_em` continua registrando a chegada ao worker e `recebido_em` a chegada ao PostgreSQL. Bateria permanece nula até instalar/calibrar medição real.
+`detectado_em` é a hora da recepção no ESP32, não a hora do upload. Sem NTP válido será `null`; o backend preserva a detecção para diagnóstico sem atribuir vínculo/zona. O receptor (19/11/2026) retém as leituras feitas antes do NTP e, quando o relógio sincroniza no mesmo boot, envia o horário real calculado pelo relógio monotônico; só leituras de um boot anterior ou após `ARGOS_TIME_WAIT_S` seguem com `null`. Leitura atrasada (fila do receptor ou do gateway) recebe vínculo pelo instante observado e zona quando a zona não foi alterada depois da detecção (`zonas.updated_at <= detectado_em`). `recebido_no_gateway_em` continua registrando a chegada ao worker e `recebido_em` a chegada ao PostgreSQL. Bateria permanece nula até instalar/calibrar medição real.
 
 ## API Express nova
 

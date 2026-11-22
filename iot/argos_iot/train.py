@@ -51,9 +51,22 @@ def dataset(path, receivers, steps, interval, property_id):
     return splits
 
 
+def carregar_geometria(path, receivers):
+    """Lê a resposta de GET /api/iot/receptores/coordenadas (ou só a lista `data`)."""
+    raw = json.loads(Path(path).read_text(encoding='utf-8'))
+    rows = raw['data'] if isinstance(raw, dict) else raw
+    campos = ('x_m', 'y_m', 'rssi_1m_dbm', 'expoente_perda')
+    geometria = {str(r['receptor_id']): {c: float(r[c]) for c in campos} for r in rows}
+    faltando = [rx for rx in receivers if rx not in geometria]
+    if faltando:
+        raise ValueError('Geometria sem os receptores: ' + ', '.join(faltando))
+    return {rx: geometria[rx] for rx in receivers}
+
+
 def train(args):
     if not 2 <= args.steps <= 256 or not 1 <= args.interval <= 3600 or len(set(args.receivers)) < 3:
         raise ValueError('Configuração de sequência inválida')
+    geometria = carregar_geometria(args.geometry, args.receivers)
     import tensorflow as tf
     tf.keras.utils.set_random_seed(42)
     splits = dataset(args.csv, args.receivers, args.steps, args.interval, args.property)
@@ -87,7 +100,7 @@ def train(args):
         behavior_accuracy=float(np.mean(np.argmax(result['behavior'], axis=1) == labels)))
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     model.save(out / 'argos_gru.keras')
-    meta = dict(schema_version=2, version=datetime.now(timezone.utc).strftime('gru-%Y%m%dT%H%M%SZ'),
+    meta = dict(schema_version=3, geometria=geometria, version=datetime.now(timezone.utc).strftime('gru-%Y%m%dT%H%M%SZ'),
         property_id=args.property, steps=args.steps, interval_s=args.interval,
         receivers=args.receivers, labels=LABELS, feature_mean=mean.tolist(), feature_std=std.tolist(),
         xy_mean=origin.tolist(), xy_std=scale.tolist(), metrics=metrics,
@@ -104,4 +117,6 @@ if __name__ == '__main__':
     parser.add_argument('--receivers', nargs='+', required=True, help='UUIDs em ordem fixa')
     parser.add_argument('--steps', type=int, default=16); parser.add_argument('--interval', type=float, default=30)
     parser.add_argument('--epochs', type=int, default=60); parser.add_argument('--out', default='model')
+    parser.add_argument('--geometry', required=True,
+        help='JSON de GET /api/iot/receptores/coordenadas no período das coletas')
     train(parser.parse_args())
