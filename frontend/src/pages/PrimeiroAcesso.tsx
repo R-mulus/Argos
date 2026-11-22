@@ -80,7 +80,7 @@ export default function PrimeiroAcesso({ fonte, origem, email, destino = "/confi
                   </li>
                 ))}
               </ol>
-              <p className="mt-5 flex gap-2 text-xs text-muted-foreground"><Check aria-hidden="true" className="size-4 shrink-0" />Tudo fica em Configurações e pode ser alterado depois.</p>
+              <p className="mt-5 flex gap-2 text-xs text-muted-foreground"><Check aria-hidden="true" className="size-4 shrink-0" />Tudo fica na tela Cadastrar e pode ser alterado depois.</p>
             </div>
           </div>
         </Card>

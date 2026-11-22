@@ -149,6 +149,7 @@ Referências: `ARGOS_CONTEXT.md` e Documento de Especificação de Requisitos de
 8. Atualizar `.gitignore` para ignorar explicitamente `.env` e `.env.*`, preservando `.env.example` (validar se já existe outro mecanismo de proteção antes do commit).
 9. Revisar e retirar a referência a **RFID UHF** do comentário de TODO em `backend/src/server.ts`, que contradiz a arquitetura ESP32/RSSI.
 10. Consolidar documentação e identificar responsáveis por cada tarefa antes de abrir PRs.
+11. Cadastrar coordenadas e calibração reais dos receptores, habilitar NTP nos receptores e validar a precisão da trilateração em campo.
 
 ## 7. Como atualizar este documento após um PR
 
@@ -164,6 +165,12 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 | Data | Responsável | Branch / PR | Mudança realizada | Validação executada |
 |---|---|---|---|---|
 | 03/11/2026 | Documento inicial (consulta ao GitHub) | `lindomar-GPT` (`3d19a7f51`) | Inventário do estado e das entregas ainda não publicadas | Leitura de arquivos e listagens; **sem build** |
+| 18/11/2026 | Mateus (frontend) | `dev` (não commitado) | Mapa de satélite (Esri World Imagery, uso não comercial, com atribuição) e visual do Figma "Estado área 1": zona com contorno laranja, receptores e animais em círculos brancos, controles redondos. Cadastrar › Mapa ganhou a marcação no satélite (`PosicionamentoCanvas`): coordenadas ou link do Google Maps, localização do navegador, clique para a origem e para cada receptor, arrastar; salva a referência e as posições dos receptores. A localização real da fazenda ainda precisa ser marcada pela equipe | `tsc -b`, `lint`, `build`, `vitest` (31), `verificar-mapa.mjs` (13 verificações, incluindo a marcação no satélite), `verificar-inicio.mjs`; 390 px sem rolagem horizontal. As imagens de satélite não carregam no ambiente de teste (rede bloqueada): conferir no navegador |
+| 18/11/2026 | Mateus (frontend) | `dev` (não commitado) | Migrações aplicadas no projeto hospedado: `20261118113632_argos_referencia_espacial.sql` (antes `20261117170000`, renomeada para o número do histórico remoto) e `20261118113726_argos_avisos_comunicacao.sql` (pg_cron a cada 5 min, avisos `receptor_sem_leitura` e `coleira_sem_deteccao`). `AGENTS.md` passa a aceitar trilateração RSSI como estimativa, com regras. Página `/configuracoes` intitulada "Cadastrar"; rótulo "Coleira" para `coleira_sem_deteccao` na Central de Alertas | Banco: objetos, RLS, view com `security_invoker`, job do cron ativo, execução manual da função (0 avisos: nenhum dispositivo real caiu nas janelas) e advisors de segurança sem itens novos. Função testada antes num PostgreSQL 16 local (cria, não duplica, encerra ao voltar). Front: `tsc -b`, `lint`, `build`, `vitest` |
+| 18/11/2026 | Mateus (frontend) | `dev` (não commitado) | Desenho do contorno das zonas sobre o mapa em Configurações › Mapa (`EditorZonaCanvas`, Terra Draw + adaptador MapLibre): desenhar, arrastar, criar e apagar vértices; grava em metros locais pela rota existente `PUT /api/iot/zonas/:id/geometria`. Dependências `terra-draw` e `terra-draw-maplibre-gl-adapter` | `tsc -b`, `lint`, `build`, `vitest` (28), `verificar-mapa.mjs` (12 verificações, incluindo desenho e arraste), `verificar-inicio.mjs` |
+| 18/11/2026 | Mateus (frontend) | `dev` (não commitado) | Cards menores em Perfil (Conta/Propriedade 263 → 221 px) e Alertas (avisos 120 → 103 px); `IndicadorResumo` (contadores de Perfil e Alertas) 142 → 116 px. Item "Configurações" da navbar virou "Cadastrar" (ícone `ClipboardPlus`, rota `/configuracoes` mantida). Card "Animais cadastrados" do Início com cabeça de bovino (`IconeBovino`) no lugar da pata | `tsc -b`, `lint`, `build`, `vitest`, `verificar-inicio.mjs`; Playwright em 1440 e 390 px sem rolagem horizontal |
+| 17/11/2026 | Mateus (frontend) | `dev` (não commitado) | Mapa real nas telas Animais e Receptores (MapLibre, `MapaMonitoramento`), substituindo `MapaIlustrativoZona`; aba Configurações › Mapa; rotas `/api/iot/localizacoes/recentes`, `/api/iot/referencia-espacial`, `/api/iot/zonas/:id/geometria`; migração aditiva `20261117170000_argos_referencia_espacial.sql` (**não aplicada** no projeto hospedado). Detalhes em `docs/MAPA.md` | Front: `tsc -b`, `lint`, `build`, `vitest` (26), `verificar-inicio.mjs`, `verificar-mapa.mjs` (11 verificações no Chromium). Back: `typecheck`, `test` (29). Banco: migrações e `supabase/testes/referencia_espacial.sql` num PostgreSQL 16 local. Sem teste com a API e um usuário reais |
+| 17/11/2026 | Mateus (frontend) | `dev` (não commitado) | Padronização de tamanhos de Perfil e Central de Alertas com a Visão Geral: cards Conta/Propriedade de 332 para 263 px, títulos de card 24 px, botões 36 px; cards de aviso de 151 para 120 px (título 20 px, descrição 14–15 px, aba de prioridade, selos e botões menores, espaço entre avisos 12–16 px). Sem mudança de dados, API, rotas, cores ou ações | `tsc -b`, `lint`, `build`, `verificar-inicio.mjs`; Playwright em 1440 e 390 px, com título e descrição longos, sem rolagem horizontal |
 
 ## 8. Guia rápido para novos integrantes
 
@@ -246,3 +253,16 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 > - ativar a proteção contra senhas vazadas no painel do Supabase (Auth › Password security);
 > - exportar a configuração do container `argos-emqx` criado à mão, antes de adotar o compose;
 > - commit e push da `dev`.
+
+> **16/11/2026 — tela inicial sem cards de exemplo.** Saíram os cards de temperatura e de "Dados Processados" (exemplos do Figma). No lugar entram oito indicadores reais (`IndicadorMonitoramento`), lidos do resumo, das zonas e da comunicação dos receptores:
+> - no topo: animais cadastrados, detectados recentemente, zonas ativas e receptores comunicando;
+> - ao lado do Animal em Destaque: nunca detectados, detecção desatualizada (com destaque de atenção), detectados sem zona e receptores sem primeira leitura.
+>
+> As leituras de hoje e a média do período ficam numa linha sob o título, com os filtros mantidos. "Média de Movimentação em m/h" virou "Movimentação entre Zonas" e mostra um aviso de espera, sem valores simulados, até existir uma fonte validada.
+>
+> O novo componente `AvisoEstado` padroniza os avisos de atenção, erro (inclusive `EstadoBloco`) e informação, com ações para cadastrar ou ativar zona, cadastrar animal, revisar configurações e cadastrar receptor. Os títulos das seções passaram a ser Resumo do Monitoramento, Monitoramento por Zonas, Contagem e Histórico do Rebanho e Status dos Receptores.
+>
+> Lint, build, `node verificar-inicio.mjs` (5 cenários, agora também conferindo títulos, ausência de temperatura e de m/h e links da prévia) e prévias em 1440 e 390 px aprovados. **Pendentes:**
+> - as métricas de liderança, tempo em movimento e distância do Animal em Destaque continuam simuladas, com selo;
+> - a movimentação depende de uma métrica definida a partir das trocas de zona registradas.
+

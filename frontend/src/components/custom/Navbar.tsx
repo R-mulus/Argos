@@ -10,7 +10,7 @@ import {
 	UserRound,
 	LogOut,
 	Menu,
-	Settings,
+	ClipboardPlus,
 } from "lucide-react";
 
 import { cowHead } from "@lucide/lab";
@@ -146,14 +146,14 @@ export default function Navbar() {
 							<span>Perfil</span>
 						</ToggleGroupItem>
 
-						{/* Configurações */}
+						{/* Cadastrar (rota /configuracoes) */}
 						<ToggleGroupItem
 							value="/configuracoes"
-							aria-label="Ir para Configurações"
+							aria-label="Ir para Cadastrar"
 							className="h-9 cursor-pointer gap-2 rounded-argos! border-0! bg-transparent px-3 text-secondary-foreground transition-colors duration-200 hover:bg-secondary-foreground data-pressed:bg-secondary-foreground data-pressed:font-semibold data-pressed:text-secondary"
 						>
-							<Settings className="size-5" />
-							<span>Configurações</span>
+							<ClipboardPlus className="size-5" />
+							<span>Cadastrar</span>
 						</ToggleGroupItem>
 
 						</ToggleGroup>
@@ -267,7 +267,7 @@ export default function Navbar() {
 							Perfil
 						</Button>
 
-						{/* Configurações */}
+						{/* Cadastrar (rota /configuracoes) */}
 						<Button
 							variant="ghost"
 							onClick={() => abrir("/configuracoes")}
@@ -277,8 +277,8 @@ export default function Navbar() {
 									: "text-secondary-foreground hover:bg-foreground/10 hover:text-secondary-foreground"
 							}`}
 						>
-							<Settings className="size-5" />
-							Configurações
+							<ClipboardPlus className="size-5" />
+							Cadastrar
 						</Button>
 
 						{/* Sair */}

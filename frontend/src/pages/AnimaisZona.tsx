@@ -9,18 +9,20 @@ import { CabecalhoZona } from "@/components/custom/CabecalhoZona";
 import { DistribuicaoComportamento } from "@/components/custom/DistribuicaoComportamento";
 import { AvisoAntigo, EstadoBloco, Secao } from "@/components/custom/EstadoConsulta";
 import { HistoricoLeitura, registroDeDeteccao } from "@/components/custom/HistoricoLeitura";
-import { MapaIlustrativoZona } from "@/components/custom/MapaIlustrativoZona";
+import { MapaMonitoramento } from "@/components/custom/MapaMonitoramento";
 import { ResumoZona } from "@/components/custom/ResumoZona";
 import { SeloSimulado } from "@/components/custom/SeloSimulado";
 import { Card } from "@/components/ui/card";
 import { useAgora, usePeriodo, useZonaMonitorada } from "@/hooks/useMonitoramento";
 import { fonteDemonstracao, type CenarioDemonstracao } from "@/lib/demonstracaoMonitoramento";
+import { espacialApi, espacialDemonstracao } from "@/lib/espacial";
 import { baixarBlob, buscarHistoricoCompleto, metricasReceptor, serieSemDeteccao } from "@/lib/historico";
 import { chaveMonitoramento, fonteApi, type FiltroHistorico } from "@/lib/fonteMonitoramento";
 
 /** Tela Animais: visão de uma zona escolhida no título (`?zona=<id>`). */
 export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDemonstracao }) {
   const fonte = useMemo(() => (demonstracao ? fonteDemonstracao(demonstracao) : fonteApi), [demonstracao]);
+  const fonteEspacial = useMemo(() => (demonstracao ? espacialDemonstracao(demonstracao) : espacialApi), [demonstracao]);
   const origem = demonstracao ?? "api";
   const [parametros, setParametros] = useSearchParams();
   const periodo = usePeriodo();
@@ -146,8 +148,18 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
           <AnimaisSemDeteccao dados={semDeteccao} serie={filtro && !historico.isError && !historicoAnterior.isError ? serie : []} nota={notaSerie} />
         </section>
 
-        <Secao titulo="Análise Geral" id="mapa" className="mt-12 lg:mt-[78px]">
-          <MapaIlustrativoZona nomeZona={zona.nome} animaisNaZona={zona.quantidade} />
+        <Secao titulo="Mapa da Propriedade" id="mapa" className="mt-12 lg:mt-[78px]">
+          <MapaMonitoramento
+            fonte={fonteEspacial}
+            origem={origem}
+            demonstracao={demonstracao}
+            resumo={dadosResumo}
+            comunicacao={receptores.data?.data}
+            zonasCadastro={zonas.data?.data}
+            zonaFocoId={zona.id}
+            foco="animais"
+            agora={agora}
+          />
         </Secao>
 
         <Secao titulo="Histórico de Leitura" id="historico" className="mt-12 lg:mt-[70px]">

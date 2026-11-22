@@ -2,7 +2,7 @@
 
 > **Projeto:** Argos — monitoramento de rebanhos bovinos por zonas de detecção.  
 > **Repositório:** https://github.com/R-mulus/Argos  
-> **Última revisão:** 03/11/2026
+> **Última revisão:** 18/11/2026 (localização por trilateração RSSI aceita)
 >
 > Este arquivo estabelece as convenções para assistentes de desenvolvimento usados por diferentes integrantes da equipe. **Não confunda requisitos planejados com funcionalidades já implementadas.**
 
@@ -29,7 +29,7 @@ Se documentos entrarem em conflito, **sinalize a divergência**. Nunca modifique
 ## 2. Arquitetura e escopo
 
 - **Produto:** aplicação web responsiva para visualização, identificação e contagem de bovinos e seus históricos, com análise comportamental planejada.
-- **Localização:** por **zona de interesse** com detecções de ESP32 e RSSI; **não pressupor GPS ou coordenadas precisas**.
+- **Localização:** por **zona de interesse** (receptor que ouve o animal com mais força) e, quando três ou mais receptores com coordenadas e calibração ouvem a mesma coleira, por **trilateração RSSI** no worker Python (`iot/argos_iot/localizacao.py`), em metros a partir de uma origem da propriedade. **Não pressupor GPS**: a posição é uma estimativa.
 - **Hardware:** ESP32 como transmissor acoplado ao animal e receptor em pontos da propriedade; **RFID/UHF não fazem parte da arquitetura atual**. Há referência obsoleta a RFID em um comentário do backend: não reproduza essa decisão antiga.
 - **Backend:** Express + TypeScript, organizado conforme MVC à medida que avançar; API própria para regras de negócio e ingestão de dados IoT.
 - **Banco/autenticação:** Supabase (PostgreSQL e Auth); autenticação prevista diretamente no frontend.
@@ -41,7 +41,12 @@ Se documentos entrarem em conflito, **sinalize a divergência**. Nunca modifique
 - Não propor ou implementar sem solicitação explícita: geofence para animais que saem dos limites da fazenda, alerta de animal parado por muito tempo e índice de áreas com maior movimentação.
 - Evitar duplicidade de contagem por animal entre receptores/zonas (RN01). Um gráfico com soma de setores só representa o total corretamente se os registros já tiverem sido reconciliados.
 - Diferenciar data de **última detecção**, data de **recebimento** e dados desatualizados. Conectividade rural é intermitente (RN03).
-- Não calcular distância física exata a partir do RSSI nem apresentar uma média simulada como dado medido.
+- A trilateração RSSI é aceita como **estimativa de posição**, com estas regras:
+  - o cálculo fica no worker; o frontend só exibe as estimativas recebidas da API, sem calcular posição nem ler pacotes MQTT;
+  - exige 3 ou mais receptores com coordenadas e calibração (`argos_posicoes_receptores`); com 1 ou 2, usar apenas a zona;
+  - exibir sempre como estimada, em metros locais, nunca como GPS ou distância exata; o resíduo do ajuste não é margem de erro;
+  - não preencher lacunas com posições inventadas; estimativas sem horário, duplicadas ou com salto implausível não movem o animal (ver `docs/MAPA.md`).
+- Não apresentar uma média simulada como dado medido.
 - Garantir isolamento de dados por propriedade, validação dos registros e cuidados com credenciais (RNF03 e RNF05).
 
 ## 3. Stack e convenções de frontend

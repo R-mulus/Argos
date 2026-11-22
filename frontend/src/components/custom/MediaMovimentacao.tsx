@@ -1,5 +1,6 @@
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
+import { AvisoEstado } from "@/components/custom/AvisoEstado"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -8,36 +9,31 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 
-/** Valores médios de movimentação do rebanho, em metros por hora (m/h). */
+/**
+ * Um ponto da série de movimentação: o mesmo horário no período anterior e no atual.
+ * `null` marca horário sem medição (a linha é interrompida, nunca preenchida com zero).
+ */
 export type RegistroMovimentacao = {
-  /** Horário do período monitorado, exibido no eixo horizontal. */
+  /** Horário ou intervalo exibido no eixo horizontal. */
   horario: string
-  /** Média de movimentação dos animais no dia anterior, em m/h. */
-  anterior: number
-  /** Média de movimentação dos animais no dia atual, em m/h. */
-  atual: number
+  anterior: number | null
+  atual: number | null
 }
 
 export type MediaMovimentacaoProps = {
-  /** Registros ordenados por horário; caso não fornecidos, usa dados fictícios. */
-  dados?: RegistroMovimentacao[]
+  /**
+   * Série real, ordenada por horário. `null` (padrão) indica que ainda não existe fonte validada:
+   * o card mostra o aviso de espera, sem valores simulados.
+   */
+  dados?: RegistroMovimentacao[] | null
+  /** Título do card. A métrica atual é por zona; não há distância medida pelo RSSI. */
+  titulo?: string
+  /** Unidade exibida no eixo e no tooltip (ex.: "trocas de zona"). */
+  unidade?: string
+  /** Texto do aviso enquanto não há fonte de dados. */
+  mensagemSemFonte?: string
   className?: string
 }
-
-// Dados fictícios aproximados do Figma, apenas para desenvolvimento.
-// A estimativa de distância percorrida não é calculada por este componente.
-const dadosSimulados: RegistroMovimentacao[] = [
-  { horario: "06:00", anterior: 370, atual: 500 },
-  { horario: "06:30", anterior: 700, atual: 290 },
-  { horario: "07:00", anterior: 705, atual: 800 },
-  { horario: "07:30", anterior: 600, atual: 690 },
-  { horario: "08:00", anterior: 530, atual: 450 },
-  { horario: "08:30", anterior: 320, atual: 200 },
-  { horario: "09:00", anterior: 510, atual: 430 },
-  { horario: "09:30", anterior: 665, atual: 500 },
-  { horario: "10:00", anterior: 430, atual: 335 },
-  { horario: "10:30", anterior: 280, atual: 370 },
-]
 
 const configuracaoGrafico = {
   anterior: { label: "Anterior", color: "var(--primary)" },
@@ -48,9 +44,13 @@ const formatarValor = (valor: number) =>
   valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })
 
 export function MediaMovimentacao({
-  dados = dadosSimulados,
+  dados = null,
+  titulo = "Movimentação entre Zonas",
+  unidade = "",
+  mensagemSemFonte = "As informações serão exibidas após a integração dos dispositivos ESP32.",
   className,
 }: MediaMovimentacaoProps) {
+  const sufixo = unidade ? ` ${unidade}` : ""
   return (
     <Card
       className={`@container w-full min-w-0 gap-5 overflow-hidden py-5 @min-[700px]:gap-7 @min-[700px]:py-6 ${className ?? ""}`}
@@ -58,10 +58,10 @@ export function MediaMovimentacao({
       <CardHeader className="px-4 @min-[650px]:px-7">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-5 gap-y-3">
           <CardTitle className="min-w-0 text-base leading-tight font-normal @min-[460px]:text-xl @min-[850px]:text-2xl">
-            Média de Movimentação em m/h
+            {titulo}
           </CardTitle>
 
-          <div
+          {dados !== null && dados.length > 0 && <div
             aria-label="Legenda do gráfico"
             className="flex shrink-0 flex-wrap items-center gap-3 text-xs @min-[550px]:gap-5 @min-[550px]:text-sm"
           >
@@ -79,19 +79,25 @@ export function MediaMovimentacao({
               />
               Atual
             </span>
-          </div>
+          </div>}
         </div>
       </CardHeader>
 
       <CardContent className="min-w-0 px-2 @min-[650px]:px-5">
-        {dados.length === 0 ? (
-          <p className="px-2 py-12 text-center text-xs text-muted-foreground @min-[500px]:text-sm">
-            Não há dados de movimentação para o período selecionado.
-          </p>
+        {dados === null ? (
+          <div className="flex min-h-[220px] items-center px-2 @min-[650px]:min-h-[270px] @min-[980px]:min-h-[315px]">
+            <AvisoEstado tom="informacao" titulo="Aguardando dados reais de movimentação" className="w-full">
+              {mensagemSemFonte}
+            </AvisoEstado>
+          </div>
+        ) : dados.length === 0 ? (
+          <div className="flex min-h-[220px] items-center px-2 @min-[650px]:min-h-[270px]">
+            <AvisoEstado tom="informacao" titulo="Sem movimentação registrada no período" className="w-full" />
+          </div>
         ) : (
           <div
             role="region"
-            aria-label="Comparação da movimentação média do dia anterior e do dia atual. Role horizontalmente para ver todos os horários."
+            aria-label={`${titulo}: comparação do período anterior com o atual. Role horizontalmente para ver todos os horários.`}
             tabIndex={0}
             className="w-full min-w-0 overflow-x-auto pb-2 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
@@ -141,7 +147,7 @@ export function MediaMovimentacao({
                             {nome === "anterior" || nome === "Anterior" ? "Anterior" : "Atual"}
                           </span>
                           <span className="font-medium tabular-nums">
-                            {typeof valor === "number" ? formatarValor(valor) : String(valor)} m/h
+                            {typeof valor === "number" ? `${formatarValor(valor)}${sufixo}` : "—"}
                           </span>
                         </div>
                       )}

@@ -33,7 +33,7 @@ function criarCliente(cenario: CenarioDemonstracao) {
   return client;
 }
 
-/** Prévia pública das telas Início, Animais, Receptores, Alertas, Configurações, Perfil e primeiro acesso, sem acesso à API. `?cenario=` seleciona o estado inicial. */
+/** Prévia pública das telas Início, Animais, Receptores, Alertas, Cadastrar, Perfil e primeiro acesso, sem acesso à API. `?cenario=` seleciona o estado inicial. */
 export default function DemonstracaoInicio({ tela = "inicio" }: { tela?: "inicio" | "animais" | "receptores" | "alertas" | "configuracoes" | "perfil" | "primeiro-acesso" }) {
   const [parametros] = useSearchParams();
   const inicial = parametros.get("cenario");

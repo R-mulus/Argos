@@ -2,30 +2,37 @@ import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { addDays, addMonths, differenceInCalendarDays, format, startOfDay, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { CircleOff, Clock3, MapPinOff, RadioTower, Radio, ScanSearch, Signal } from "lucide-react";
+import { IconeBovino } from "@/components/custom/IconeBovino";
 import { AnimalDestaque } from "@/components/custom/AnimalDestaque";
+import { AvisoEstado } from "@/components/custom/AvisoEstado";
+import { IndicadorMonitoramento, type EstadoIndicador } from "@/components/custom/IndicadorMonitoramento";
 import { CartaoZona } from "@/components/custom/CartaoZona";
 import { AvisoAntigo, EstadoBloco, Secao } from "@/components/custom/EstadoConsulta";
 import { ContabilizacaoCabecasMes } from "@/components/custom/ContabilizacaoCabecasMes";
-import { DadosProcessadosDia } from "@/components/custom/DadosProcessadosDia";
 import { MediaMovimentacao } from "@/components/custom/MediaMovimentacao";
 import { QuantidadeCabecas } from "@/components/custom/QuantidadeCabecas";
 import { ReceptorResumoCard } from "@/components/custom/ResumoReceptorCard";
-import { SeloSimulado } from "@/components/custom/SeloSimulado";
 import { SeletorIntervaloDatas } from "@/components/custom/SeletorIntervaloDatas";
 import { SeletorPeriodo, type PeriodoVisualizacao } from "@/components/custom/SeletorPeriodo";
-import { TemperaturaMedia } from "@/components/custom/TemperaturaMedia";
 import type { IntervaloDatas } from "@/components/custom/CalendarioIntervalo";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { fonteDemonstracao, type CenarioDemonstracao } from "@/lib/demonstracaoMonitoramento";
 import { chaveMonitoramento, fonteApi } from "@/lib/fonteMonitoramento";
 import { cabecasPorMes } from "@/lib/historico";
+import { rotaApp } from "@/lib/rotas";
 import { ATUALIZACAO_MS, RECENCIA_MS, escolherDestaque, indicadoresZona, intervaloDoPeriodo } from "@/lib/monitoramento";
 
 const RECEPTORES_POR_PAGINA = 4;
 
 // Meses exibidos no gráfico de cabeças, incluindo o atual.
 const MESES_CABECAS = 6;
+const RECENCIA_MIN = RECENCIA_MS / 60_000;
+
+/** Estado de um indicador a partir da consulta que o alimenta: sem dados, nunca zero. */
+function estadoDe(consulta: { data?: unknown; isError: boolean }): EstadoIndicador {
+  return consulta.data !== undefined ? "pronto" : consulta.isError ? "erro" : "carregando";
+}
 
 export default function Monitoramento({ demonstracao }: { demonstracao?: CenarioDemonstracao }) {
   const fonte = useMemo(() => (demonstracao ? fonteDemonstracao(demonstracao) : fonteApi), [demonstracao]);
@@ -43,7 +50,7 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
   const receptores = useQuery({ queryKey: chaveMonitoramento(origem, "receptores"), queryFn: ({ signal }) => fonte.receptores(signal), refetchInterval: ATUALIZACAO_MS });
   const zonas = useQuery({ queryKey: chaveMonitoramento(origem, "zonas"), queryFn: ({ signal }) => fonte.zonas(signal), refetchInterval: 2 * ATUALIZACAO_MS });
 
-  // Leituras: hoje (card 3) e média diária do intervalo escolhido (card 4). Fim exclusivo no dia seguinte.
+  // Leituras de hoje e média diária do intervalo escolhido (linha sob o título). Fim exclusivo no dia seguinte.
   const hojeInicio = startOfDay(new Date(agora));
   const hoje = hojeInicio.toISOString();
   const amanha = addDays(hojeInicio, 1).toISOString();
@@ -123,47 +130,97 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
     setIntervalo(intervaloDoPeriodo(proximo));
   }
 
-  const descricaoPeriodo = !inicio || !fimExclusivo ? "Selecione a data final do período"
-    : dias === 1 ? `Leituras em ${format(inicio, "dd/MM")}`
-    : `Média diária de ${format(inicio, "dd/MM")} a ${format(addDays(fimExclusivo, -1), "dd/MM")}`;
+  const rota = (caminho: string) => rotaApp(caminho, demonstracao);
+  const intervaloTexto = !inicio || !fimExclusivo ? null
+    : dias === 1 ? `em ${format(inicio, "dd/MM")}`
+    : `de ${format(inicio, "dd/MM")} a ${format(addDays(fimExclusivo, -1), "dd/MM")}`;
+  const linhaLeituras = !intervaloTexto ? "Selecione a data inicial e a final para consultar as leituras."
+    : leituras.data ? `${leituras.data.deHoje.toLocaleString("pt-BR")} leituras hoje · média de ${leituras.data.mediaDiaria.toLocaleString("pt-BR")} por dia ${intervaloTexto}`
+    : leituras.isError ? "Não foi possível consultar as leituras do período."
+    : "Consultando as leituras do período…";
 
-  const resumoCompleto = dadosResumo && (
-    <p className="text-sm text-muted-foreground">
-      {dadosResumo.recentes.toLocaleString("pt-BR")} de {dadosResumo.total_ativos.toLocaleString("pt-BR")} animais detectados nos últimos 5 min
-      {dadosResumo.desatualizados > 0 && ` · ${dadosResumo.desatualizados} com detecção antiga`}
-      {dadosResumo.sem_horario > 0 && ` · ${dadosResumo.sem_horario} sem horário confiável`}
-      {dadosResumo.nunca_detectados > 0 && ` · ${dadosResumo.nunca_detectados} nunca detectados`}
-    </p>
+  // Indicadores derivados das consultas existentes (resumo, zonas e comunicação dos receptores).
+  const listaZonas = zonas.data?.data;
+  const zonasAtivas = listaZonas?.filter(z => z.ativa).length ?? null;
+  const receptoresRecentes = receptores.data ? listaReceptores.filter(r => r.estado_comunicacao === "recente").length : null;
+  const receptoresAguardando = receptores.data ? listaReceptores.filter(r => r.estado_comunicacao === "aguardando_primeira_leitura").length : null;
+  const receptoresSemLeitura = listaReceptores.filter(r => r.estado_comunicacao === "sem_leitura_recente").length;
+  const totalReceptores = receptores.data?.count ?? null;
+  const estadoResumo = estadoDe(resumo);
+  const contabilizados = dadosResumo ? dadosResumo.zonas.reduce((soma, z) => soma + z.quantidade, 0) + dadosResumo.recentes_sem_zona : null;
+
+  const avisoZonas = listaZonas && listaZonas.length > 0 ? (
+    <AvisoEstado tom="atencao" titulo="Nenhuma zona de monitoramento ativa" acao={{ rotulo: "Ativar zona", destino: rota("/configuracoes?aba=zonas") }}>
+      {listaZonas.length === 1 ? "Há 1 zona cadastrada" : `Há ${listaZonas.length} zonas cadastradas`}, mas nenhuma está ativa. Ative uma zona e vincule um receptor a ela para acompanhar os animais.
+    </AvisoEstado>
+  ) : (
+    <AvisoEstado tom="atencao" titulo="Nenhuma zona de monitoramento ativa" acao={{ rotulo: "Cadastrar zona", destino: rota("/configuracoes?aba=zonas") }}>
+      Cadastre ou ative uma zona para começar a acompanhar os animais da propriedade.
+    </AvisoEstado>
   );
+  const periodoCabecas = `${format(inicioMeses, "MMMM 'de' yyyy", { locale: ptBR })} e ${format(addMonths(fimMeses, -1), "MMMM 'de' yyyy", { locale: ptBR })}`;
+  const avisoCabecas = (
+    <AvisoEstado tom="informacao" titulo="Ainda não há leituras para este período" className="w-full">
+      Não foram registradas detecções de animais entre {periodoCabecas}. O gráfico será preenchido quando houver leituras disponíveis.
+    </AvisoEstado>
+  );
+  const avisoQuantidade = dadosResumo && contabilizados === 0 ? (dadosResumo.total_ativos === 0 ? (
+    <AvisoEstado tom="atencao" titulo="Nenhum animal contabilizado" acao={{ rotulo: "Cadastrar animal", destino: rota("/configuracoes?aba=animais") }}>
+      Ainda não existem animais contabilizados nas zonas de monitoramento. Cadastre os animais da propriedade para começar.
+    </AvisoEstado>
+  ) : (
+    <AvisoEstado tom="atencao" titulo="Nenhum animal contabilizado" acao={{ rotulo: "Revisar vínculos", destino: rota("/configuracoes?aba=vinculos") }}>
+      {dadosResumo.total_ativos.toLocaleString("pt-BR")} {dadosResumo.total_ativos === 1 ? "animal cadastrado" : "animais cadastrados"}, nenhum detectado nos últimos {RECENCIA_MIN} minutos. Confira se as zonas estão ativas, se as coleiras estão vinculadas e se os receptores estão se comunicando.
+    </AvisoEstado>
+  )) : undefined;
 
   return (
     <div className="mx-auto w-full max-w-[1786px] min-w-0 pt-8 pb-16 lg:pt-[64px] [&_[data-slot=card]]:ring-foreground/30">
-      <section aria-labelledby="visao-geral">
+      <section aria-labelledby="resumo-monitoramento">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 lg:mb-[54px]">
-          <h1 id="visao-geral" className="text-2xl leading-tight font-medium lg:text-[30px]">Visão Geral</h1>
+          <div className="min-w-0">
+            <h1 id="resumo-monitoramento" className="text-2xl leading-tight font-medium lg:text-[30px]">Resumo do Monitoramento</h1>
+            <p role={leituras.isError ? "alert" : undefined} className={`mt-1 text-sm ${leituras.isError ? "text-destructive" : "text-muted-foreground"}`}>{linhaLeituras}</p>
+          </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <SeletorPeriodo value={periodo} onChange={mudarPeriodo} className="sm:w-[291px]" />
             <SeletorIntervaloDatas value={intervalo} onChange={valor => setIntervalo(valor ?? { from: undefined })} className="sm:w-[263px]" />
           </div>
         </div>
-        <AvisoAntigo consultas={[leituras]} agora={agora} />
+        <AvisoAntigo consultas={[resumo, zonas, receptores, leituras]} agora={agora} />
         <div className="grid min-w-0 gap-5 sm:grid-cols-2 xl:grid-cols-4 xl:gap-[27px]">
-          {[0, 1].map(i => (
-            <div key={i} className="@container relative min-w-0">
-              <TemperaturaMedia dados={{ temperaturaCelsius: 26, idAnimalComTemperaturaAlterada: 234 }} className="h-full" />
-              <SeloSimulado className="absolute top-9 right-3 @min-[360px]:top-[50px] @min-[360px]:right-4" descricao="Não há sensor de temperatura integrado; valor de exemplo." />
-            </div>
-          ))}
-          {leituras.data ? <>
-            <DadosProcessadosDia dados={{ quantidade: leituras.data.deHoje, intervaloMinutos: 0 }} descricao="Leituras registradas hoje" />
-            <DadosProcessadosDia dados={{ quantidade: leituras.data.mediaDiaria, intervaloMinutos: 0 }} descricao={descricaoPeriodo} />
-          </> : dias > 0
-            ? <EstadoBloco consulta={leituras} nome="as leituras do período" className="sm:col-span-2" />
-            : <Card className="p-6 sm:col-span-2"><p role="status">Selecione a data inicial e a final para consultar as leituras.</p></Card>}
+          <IndicadorMonitoramento
+            titulo="Animais cadastrados"
+            icone={IconeBovino}
+            estado={estadoResumo}
+            valor={dadosResumo?.total_ativos ?? null}
+            descricao="Animais ativos na propriedade, detectados ou não"
+          />
+          <IndicadorMonitoramento
+            titulo="Detectados recentemente"
+            icone={ScanSearch}
+            estado={estadoResumo}
+            valor={dadosResumo?.recentes ?? null}
+            descricao={dadosResumo ? `Últimos ${RECENCIA_MIN} min · de ${dadosResumo.total_ativos.toLocaleString("pt-BR")} cadastrados` : `Detecção nos últimos ${RECENCIA_MIN} minutos`}
+          />
+          <IndicadorMonitoramento
+            titulo="Zonas ativas"
+            icone={RadioTower}
+            estado={estadoDe(zonas)}
+            valor={zonasAtivas}
+            descricao={listaZonas ? `De ${listaZonas.length.toLocaleString("pt-BR")} ${listaZonas.length === 1 ? "zona cadastrada" : "zonas cadastradas"}` : "Zonas com monitoramento ativo"}
+          />
+          <IndicadorMonitoramento
+            titulo="Receptores comunicando"
+            icone={Signal}
+            estado={estadoDe(receptores)}
+            valor={receptoresRecentes}
+            descricao={totalReceptores !== null ? `Comunicação recente · de ${totalReceptores.toLocaleString("pt-BR")} ${totalReceptores === 1 ? "receptor" : "receptores"}` : "Receptores com comunicação recente"}
+          />
         </div>
       </section>
 
-      <section aria-label="Animal em destaque e processamento de imagens" className="mt-10 grid min-w-0 gap-5 sm:grid-cols-2 lg:mt-[119px] xl:grid-cols-4 xl:gap-[27px]">
+      <section aria-label="Animal em destaque e situação dos animais e receptores" className="mt-10 grid min-w-0 gap-5 sm:grid-cols-2 lg:mt-[119px] xl:grid-cols-4 xl:gap-[27px]">
         <div className="min-w-0 sm:col-span-2 xl:row-span-2">
           {resumo.isError && !dadosResumo ? <EstadoBloco consulta={resumo} nome="o animal em destaque" className="h-full" /> : <AnimalDestaque
             dados={posicaoDestaque ? {
@@ -174,26 +231,50 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
               raca: destaque.data?.animal.raca ?? null,
               pesoKg: destaque.data?.pesagem?.peso_kg ?? null,
             } : null}
+            destino={rota("/animals")}
             atualizadoEm={dadosResumo?.atualizado_em}
             carregando={resumo.isPending || (Boolean(posicaoDestaque) && destaque.isPending)}
           />}
           {destaque.isError && <p role="alert" className="mt-2 text-sm text-destructive">Cadastro do animal indisponível: {destaque.error.message}</p>}
         </div>
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className="@container relative min-w-0">
-            <DadosProcessadosDia
-              titulo="Dados Processados"
-              variante="detalhado"
-              dados={{ quantidade: 25, intervaloMinutos: 60 }}
-              className="h-full"
-              detalhes="Exemplo de processamento de imagens. A fonte de imagens e o modelo de análise ainda não estão integrados."
-            />
-            <SeloSimulado className="absolute top-14 right-3 @min-[400px]:top-[84px] @min-[400px]:right-5" />
-          </div>
-        ))}
+        <IndicadorMonitoramento
+          variante="destaque"
+          titulo="Nunca detectados"
+          icone={CircleOff}
+          estado={estadoResumo}
+          valor={dadosResumo?.nunca_detectados ?? null}
+          descricao="Animais cadastrados que ainda não têm nenhuma detecção registrada"
+        />
+        <IndicadorMonitoramento
+          variante="destaque"
+          titulo="Detecção desatualizada"
+          icone={Clock3}
+          estado={estadoResumo}
+          valor={dadosResumo?.desatualizados ?? null}
+          atencao
+          descricao={`Última detecção há mais de ${RECENCIA_MIN} minutos${dadosResumo && dadosResumo.sem_horario > 0 ? ` · ${dadosResumo.sem_horario.toLocaleString("pt-BR")} sem horário confiável` : ""}`}
+        />
+        <IndicadorMonitoramento
+          variante="destaque"
+          titulo="Detectados sem zona"
+          icone={MapPinOff}
+          estado={estadoResumo}
+          valor={dadosResumo?.recentes_sem_zona ?? null}
+          descricao="Detecção recente por receptor sem zona ativa; não indica saída da propriedade"
+        />
+        <IndicadorMonitoramento
+          variante="destaque"
+          titulo="Receptores sem primeira leitura"
+          icone={Radio}
+          estado={estadoDe(receptores)}
+          valor={receptoresAguardando}
+          descricao={receptoresSemLeitura > 0
+            ? `Nunca enviaram leitura · ${receptoresSemLeitura.toLocaleString("pt-BR")} já enviaram e estão sem leitura recente`
+            : "Cadastrados que ainda não enviaram nenhuma leitura"}
+        />
       </section>
 
-      <Secao titulo="Análise Geral" id="zonas" extra={resumoCompleto} className="mt-12 lg:mt-[106px]">
+      <Secao titulo="Monitoramento por Zonas" id="zonas" className="mt-12 lg:mt-[106px]">
         <EstadoBloco consulta={resumo} nome="o monitoramento por zona" />
         <AvisoAntigo consultas={[resumo, zonas, receptores]} agora={agora} />
         {dadosResumo && (dadosResumo.zonas.length ? (
@@ -203,44 +284,44 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
               return (
                 <CartaoZona
                   key={zona.id}
-                  destino={`/animals?zona=${encodeURIComponent(zona.id)}`}
+                  destino={rota(`/animals?zona=${encodeURIComponent(zona.id)}`)}
                   dados={{ nome: zona.nome, animaisAtivos: zona.quantidade, receptoresAtivos, totalReceptores, coleirasAtivas }}
                 />
               );
             })}
           </div>
-        ) : <Card className="p-6">Nenhuma zona ativa para monitoramento.</Card>)}
+        ) : avisoZonas)}
       </Secao>
 
-      <Secao titulo="Análise Geral" id="graficos" className="mt-12 lg:mt-[75px]">
+      <Secao titulo="Contagem e Histórico do Rebanho" id="graficos" className="mt-12 lg:mt-[75px]">
         <AvisoAntigo consultas={[cabecas]} agora={agora} />
         {/* Barras e rosca lado a lado, com a mesma altura; a linha de movimentação ocupa a largura toda. */}
         <div className="grid min-w-0 items-stretch gap-5 xl:grid-cols-2 xl:gap-[26px]">
           <div className="flex min-w-0">
-            {cabecas.data?.length ? (
+            {cabecas.data ? (
               <ContabilizacaoCabecasMes
+                titulo="Cabeças Detectadas por Mês"
                 dados={cabecas.data}
                 rotulos={{ real: "Cabeças detectadas" }}
                 descricao={`Animais distintos detectados em cada mês, desde o primeiro mês com leitura (até ${MESES_CABECAS} meses).`}
+                aviso={avisoCabecas}
                 className="flex-1"
               />
-            ) : cabecas.data
-              ? <Card className="flex-1 p-6"><p role="status">Nenhuma leitura nos últimos {MESES_CABECAS} meses para contar as cabeças.</p></Card>
-              : <EstadoBloco consulta={cabecas} nome="a contagem de cabeças por mês" className="flex-1" />}
+            ) : <EstadoBloco consulta={cabecas} nome="a contagem de cabeças por mês" className="flex-1" />}
           </div>
           <div className="flex min-w-0">
             {dadosResumo
-              ? <QuantidadeCabecas dados={dadosResumo.zonas} recentesSemZona={dadosResumo.recentes_sem_zona} className="flex-1" />
+              ? <QuantidadeCabecas titulo="Cabeças por Zona" dados={dadosResumo.zonas} recentesSemZona={dadosResumo.recentes_sem_zona} aviso={avisoQuantidade} className="flex-1" />
               : <EstadoBloco consulta={resumo} nome="a quantidade de cabeças" className="flex-1" />}
           </div>
         </div>
-        <div className="relative mt-5 min-w-0 xl:mt-[26px]">
-          <MediaMovimentacao />
-          <SeloSimulado className="absolute right-3 bottom-1.5" descricao="Movimentação ilustrativa; a distância não é calculada pelo RSSI." />
+        <div className="mt-5 min-w-0 xl:mt-[26px]">
+          {/* Sem fonte validada: nenhum valor simulado. A distância não é calculada pelo RSSI. */}
+          <MediaMovimentacao dados={null} />
         </div>
       </Secao>
 
-      <Secao titulo="Status Receptores" id="receptores" className="mt-12 lg:mt-[43px]">
+      <Secao titulo="Status dos Receptores" id="receptores" className="mt-12 lg:mt-[43px]">
         <EstadoBloco consulta={receptores} nome="os receptores" />
         <AvisoAntigo consultas={[receptores]} agora={agora} />
         {receptores.data && (visiveis.length ? (
@@ -253,7 +334,11 @@ export default function Monitoramento({ demonstracao }: { demonstracao?: Cenario
               />
             ))}
           </div>
-        ) : <Card className="p-6">Nenhum receptor cadastrado.</Card>)}
+        ) : (
+          <AvisoEstado tom="atencao" titulo="Nenhum receptor cadastrado" acao={{ rotulo: "Cadastrar receptor", destino: rota("/configuracoes?aba=dispositivos") }}>
+            Cadastre um receptor para configurar o monitoramento dos animais nas zonas da propriedade.
+          </AvisoEstado>
+        ))}
         {paginas > 1 && (
           <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
             <Button variant="outline" disabled={pagina === 0} onClick={() => setPaginaReceptores(pagina - 1)}>Anterior</Button>

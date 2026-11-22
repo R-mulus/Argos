@@ -127,3 +127,45 @@ export interface PredicaoIoT {
   modelo_versao: string;
   criado_em: string;
 }
+
+/** Calibração do receptor no sistema local (`GET /api/iot/receptores/coordenadas`). */
+export interface CoordenadaReceptorIoT {
+  receptor_id: string;
+  propriedade_id: string;
+  x_m: number;
+  y_m: number;
+  rssi_1m_dbm: number;
+  expoente_perda: number;
+  atualizado_em: string;
+}
+
+/** Estimativa recente (`GET /api/iot/localizacoes/recentes`): até cinco por animal, com horário de chegada da detecção. */
+export interface LocalizacaoRecenteIoT extends LocalizacaoIoT {
+  animal_id: string;
+  observado_em: string;
+  /** Chegada da detecção mais recente do evento ao PostgreSQL. */
+  recebido_em: string | null;
+}
+
+/**
+ * Como desenhar o sistema local em metros. `geografico`: origem medida em campo e azimute do eixo +y
+ * (graus a partir do norte verdadeiro, sentido horário). `planta`: imagem calibrada em metros, sem
+ * latitude/longitude.
+ */
+export type ReferenciaEspacial = {
+  propriedade_id: string;
+  azimute_eixo_y_graus: number;
+  atualizado_em: string;
+} & (
+  | { modo: 'geografico'; origem_latitude: number; origem_longitude: number; planta_url: null;
+      planta_x_min_m: null; planta_y_min_m: null; planta_x_max_m: null; planta_y_max_m: null }
+  | { modo: 'planta'; origem_latitude: null; origem_longitude: null; planta_url: string;
+      planta_x_min_m: number; planta_y_min_m: number; planta_x_max_m: number; planta_y_max_m: number }
+);
+
+/** Contorno de uma zona em metros locais (`GET /api/iot/zonas/geometrias`). */
+export interface GeometriaZona {
+  zona_id: string;
+  pontos: [number, number][];
+  atualizado_em: string;
+}

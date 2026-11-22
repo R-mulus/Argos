@@ -24,8 +24,8 @@ const CowHead = ({ className }: { className?: string }) => <Icon iconNode={cowHe
 function Dado({ rotulo, valor, destaque }: { rotulo: string; valor: string; destaque?: boolean }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs @min-[500px]:text-[15px]">{rotulo}</dt>
-      <dd className={destaque ? "mt-0.5 break-words text-2xl leading-tight font-semibold @min-[500px]:text-[30px]" : "mt-0.5 break-words text-lg leading-tight font-semibold @min-[500px]:text-[22px]"}>{valor}</dd>
+      <dt className="text-xs @min-[500px]:text-[13px]">{rotulo}</dt>
+      <dd className={destaque ? "mt-0.5 break-words text-lg leading-tight font-semibold @min-[500px]:text-xl" : "mt-0.5 break-words text-sm leading-tight font-semibold @min-[500px]:text-base"}>{valor}</dd>
     </div>
   );
 }
@@ -69,37 +69,37 @@ export default function Perfil({ conta, demonstracao }: { conta: ContaPerfil; de
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-2 xl:gap-[27px]">
         <Card className="@container relative gap-0 py-0">
-          <div aria-hidden="true" className="absolute top-0 right-0 h-10 w-[30%] rounded-bl-[24px] bg-primary @min-[500px]:h-[52px]" />
-          <div className="px-5 pt-5 pb-6 @min-[500px]:px-[30px] @min-[500px]:pt-[27px] @min-[500px]:pb-[30px]">
-            <h2 className="flex items-center gap-2.5 pr-[32%] text-xl font-normal @min-[500px]:text-[30px]"><UserRound aria-hidden="true" className="size-5 shrink-0 @min-[500px]:size-[26px]" />Conta</h2>
-            <dl className="mt-6 grid gap-5 @min-[500px]:mt-8 @min-[500px]:grid-cols-2">
+          <div aria-hidden="true" className="absolute top-0 right-0 h-7 w-[28%] rounded-bl-[18px] bg-primary @min-[500px]:h-9" />
+          <div className="px-4 pt-3.5 pb-4 @min-[500px]:px-5 @min-[500px]:pt-4 @min-[500px]:pb-5">
+            <h2 className="flex items-center gap-2.5 pr-[30%] text-base leading-tight font-normal @min-[500px]:text-xl"><UserRound aria-hidden="true" className="size-[18px] shrink-0 @min-[500px]:size-5" />Conta</h2>
+            <dl className="mt-3 grid gap-3 @min-[500px]:mt-4 @min-[500px]:grid-cols-2">
               <div className="@min-[500px]:col-span-2"><Dado rotulo="E-mail" valor={conta.email ?? "—"} destaque /></div>
               <Dado rotulo="Último acesso" valor={dataHora(conta.ultimoAcesso)} />
               <Dado rotulo="Conta criada em" valor={dataHora(conta.criadaEm)} />
             </dl>
-            <Button variant="outline" className="mt-8 h-10 rounded-full border-2 px-5" disabled={saindo} onClick={() => void sair()}>
+            <Button variant="outline" className="mt-4 h-8 rounded-full border-2 px-3.5 text-[13px]" disabled={saindo} onClick={() => void sair()}>
               <LogOut aria-hidden="true" className="size-4" />{saindo ? "Saindo…" : "Sair da conta"}
             </Button>
           </div>
         </Card>
 
         <Card className="@container relative gap-0 py-0">
-          <div aria-hidden="true" className="absolute top-0 right-0 h-10 w-[30%] rounded-bl-[24px] bg-secondary @min-[500px]:h-[52px]" />
-          <div className="px-5 pt-5 pb-6 @min-[500px]:px-[30px] @min-[500px]:pt-[27px] @min-[500px]:pb-[30px]">
-            <h2 className="flex items-center gap-2.5 pr-[32%] text-xl font-normal @min-[500px]:text-[30px]"><House aria-hidden="true" className="size-5 shrink-0 @min-[500px]:size-[26px]" />Propriedade</h2>
+          <div aria-hidden="true" className="absolute top-0 right-0 h-7 w-[28%] rounded-bl-[18px] bg-secondary @min-[500px]:h-9" />
+          <div className="px-4 pt-3.5 pb-4 @min-[500px]:px-5 @min-[500px]:pt-4 @min-[500px]:pb-5">
+            <h2 className="flex items-center gap-2.5 pr-[30%] text-base leading-tight font-normal @min-[500px]:text-xl"><House aria-hidden="true" className="size-[18px] shrink-0 @min-[500px]:size-5" />Propriedade</h2>
             {!p ? <EstadoBloco consulta={propriedade} nome="a propriedade" className="mt-6" /> : <>
-              <dl className="mt-6 grid gap-5 @min-[500px]:mt-8 @min-[500px]:grid-cols-2">
+              <dl className="mt-3 grid gap-3 @min-[500px]:mt-4 @min-[500px]:grid-cols-2">
                 <div className="@min-[500px]:col-span-2"><Dado rotulo="Nome" valor={p.nome} destaque /></div>
                 <Dado rotulo="Município / UF" valor={[p.municipio, p.uf].filter(Boolean).join(" – ") || "Não informado"} />
                 <Dado rotulo="Cadastrada em" valor={dataHora(p.created_at)} />
               </dl>
-              <Button className="mt-8 h-10 rounded-full px-5 text-white" onClick={abrirEdicao}><Pencil aria-hidden="true" className="size-4" />Editar propriedade</Button>
+              <Button className="mt-4 h-8 rounded-full px-3.5 text-[13px] text-white" onClick={abrirEdicao}><Pencil aria-hidden="true" className="size-4" />Editar propriedade</Button>
             </>}
           </div>
         </Card>
       </div>
 
-      <Secao titulo="Resumo do Cadastro" id="resumo-cadastro" className="mt-12 lg:mt-[79px]">
+      <Secao titulo="Resumo do Cadastro" id="resumo-cadastro" className="mt-10 lg:mt-14">
         <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4 xl:gap-[27px]">
           {resumo.map(item => (
             <Link key={item.titulo} to={`/configuracoes?aba=${item.aba}`} className="rounded-xl transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
