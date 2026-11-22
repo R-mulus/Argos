@@ -15,3 +15,9 @@ broker/private/
 worker/data/
 *.sqlite*
 *.lock/
+ml/.venv/
+ml/data/
+ml/model/artifacts/
+ml/test-artifacts/
+.pytest_cache/
+ml/.pytest-tmp/

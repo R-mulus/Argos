@@ -1,0 +1,17 @@
+# Critérios de aceite e Definition of Done
+
+Cada sprint exige código revisável, testes aprovados, comandos documentados, contratos válidos e riscos explícitos. Teste de fixture não equivale a validação científica ou operacional.
+
+- [x] S0: inventário e baseline executados.
+- [x] S1: cálculo e rejeições testados, diagnóstico sem mutação.
+- [ ] S2: escrita depende de calibração validada; exclusão mútua, retries, idempotência e métricas testados.
+- [ ] S3: dataset com origem/referencial/hash, sem mistura e sem vazamento temporal.
+- [ ] S4: treino/load/inferência, baseline e integridade testados; aprovação experimental bloqueada.
+- [ ] S5: outbox recuperável e inferência independente da localização.
+- [ ] S6: heurísticas conservadoras e classificador testado com sintéticos identificados.
+- [ ] S7: KPIs cobertos e null onde indisponível.
+- [ ] S8: API autenticada, painel integrado e build aprovado.
+- [ ] S9: testes isolados integrados e observabilidade documentada.
+- [ ] S10: instalação e operação reproduzíveis, pendências separadas.
+
+Aceite de produção, separado e pendente: calibração medida, referencial estável, ground truth, rótulos revisados, aprovação responsável dos modelos, migration autorizada, ensaio real de RLS/autenticação e operação contínua.

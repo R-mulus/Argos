@@ -17,6 +17,7 @@ Não depende da API Express nem dos workers anteriores.
 - [Broker, credenciais individuais, ACL e rede LAN/TLS](broker/README.md)
 - [Worker: configuração, operação e regras de persistência](worker/README.md)
 - [Resultados dos testes do backend IoT](docs/backend-iot/TESTES.md)
+- [Etapa 2: localização RSSI, GRU, KPIs e integração com dev](ml/README.md)
 
 ## Iniciar no Windows
 
