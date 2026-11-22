@@ -187,6 +187,10 @@ do evento já conhecido. UUID é público, não senha. Não use uma única chave
 
 ## 7. Diagnóstico
 
+Para `MQTT: connectError=-2`, consulte o [diagnóstico TCP/Windows com evidências e comandos](../docs/firmware/MQTT_MENOS_2.md).
+O receptor registra a configuração efetivamente compilada e o resultado da conexão de transporte,
+antes de autenticar, com `ARGOS_NETWORK_DIAGNOSTICS=1`.
+
 | Sintoma | Verificação |
 |---|---|
 | `CONFIG` | Arquivos locais, UUID canônico, segredo >=32 caracteres, Wi-Fi/usuário/senha/host |

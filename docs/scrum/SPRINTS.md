@@ -23,3 +23,11 @@ Em desenvolvimento. Cada conclusão exige testes e evidência no relatório; a p
 História: impedir gravação experimental e recuperar falhas. Entrega: guarda de origem real/validação administrativa/hash/referencial, lock de propriedade liberado pelo SO, métricas por ciclo (resultados/latência/outbox), ACK e upsert existentes preservados. Outbox tenta outros registros após falha individual.
 
 Evidência: 23 testes de proveniência, banco e diagnóstico aprovados. Arquivos: `provenance.py`, `worker.py`, `.env.example`, CLI `reference`, testes e README. Risco: não suporta workers concorrentes em hosts diferentes; exige mesmo diretório de locks. Nenhuma escrita real habilitada. Próxima: origem e integridade de datasets (S3).
+
+### S3/S4/S5 — consolidação implementada, validação em andamento
+
+Dataset v2 canônico com SHA256, origem e snapshot/referencial; exportação experimental exclusivamente local.
+GRU reutilizada com seed 42, CPU e operações determinísticas; manifesto v2 inclui origem/referencial/hiperparâmetros.
+Inferência exige referencial compatível; aprovação experimental e dataset real legado sem manifesto são bloqueados.
+Hash do modelo e do teste reservado verificados na reavaliação/aprovação. Outbox existente preserva previsões
+se o schema remoto ainda rejeitar campos nulos. Migration permanece proposta, sem aplicação.

@@ -78,7 +78,7 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
                     animal_id='eq.'+position['animal_id'],transmissor_id='eq.'+tx,
                     **{'and':f'(observado_em.gte.{lower},observado_em.lte.{position["observado_em"]})',
                        'order':'observado_em,id'})
-                prediction = predictor.predict(history,db.property_id)
+                prediction = predictor.predict(history,db.property_id,operational_reference(coordinates,db.property_id))
                 if prediction and outbox:
                     outbox.add(prediction)
             except Exception:

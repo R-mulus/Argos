@@ -21,11 +21,13 @@ def main():
     prepare.add_argument('--since',required=True); prepare.add_argument('--until',required=True)
     prepare.add_argument('--trusted-camera',action='append',default=[])
     prepare.add_argument('--reviewed-real-data',action='store_true',help='Confirma revisão humana da origem real e do referencial')
+    experiment=sub.add_parser('export-experiment')
+    experiment.add_argument('--out',required=True)
     train = sub.add_parser('train')
     train.add_argument('--dataset',required=True); train.add_argument('--out',required=True)
     train.add_argument('--task',choices=['position','behavior'],default='position')
-    train.add_argument('--steps',type=int,default=30); train.add_argument('--interval-s',type=int,default=60)
-    train.add_argument('--horizon-s',type=int,default=300); train.add_argument('--epochs',type=int,default=50)
+    train.add_argument('--steps',type=int); train.add_argument('--interval-s',type=int)
+    train.add_argument('--horizon-s',type=int); train.add_argument('--epochs',type=int,default=50)
     for name in ('evaluate','approve','infer'):
         cmd = sub.add_parser(name); cmd.add_argument('--model',required=True)
         if name=='approve': cmd.add_argument('--reviewer',required=True)
@@ -48,24 +50,18 @@ def main():
         run(args.once, args.min_receivers)
     elif args.command=='train':
         from .training import train as fit
+        from dataclasses import asdict
+        config=asdict(SeriesConfig.environment())
+        config.update({key:getattr(args,key) for key in ('steps','interval_s','horizon_s') if getattr(args,key) is not None})
         m = fit(json.loads(Path(args.dataset).read_text(encoding='utf-8')),args.out,
-            SeriesConfig(steps=args.steps,interval_s=args.interval_s,horizon_s=args.horizon_s),args.task,args.epochs)
+            SeriesConfig(**config),args.task,args.epochs)
         print(json.dumps({k:m[k] for k in ('model_version','approved','evaluation','baseline')},indent=2))
     elif args.command=='approve':
         from .training import approve
         approve(args.model,args.reviewer)
     elif args.command=='evaluate':
-        import numpy as np
-        import tensorflow as tf
-        from .training import regression_metrics
-        path=Path(args.model); m=json.loads((path/'manifest.json').read_text())
-        model=tf.keras.models.load_model(path/'model.keras',compile=False)
-        with np.load(path/'heldout.npz',allow_pickle=False) as test:
-            prediction=np.asarray(model(test['x'],training=False))
-            if not np.isfinite(prediction).all(): raise ValueError('resultado_invalido')
-            result=regression_metrics(test['y'],prediction*m['target_scale']+m['target_mean']) if m['task']=='position' else {
-                'classification_accuracy':float(np.mean(prediction.argmax(axis=1)==test['y']))}
-        print(json.dumps(result,indent=2))
+        from .training import evaluate_saved
+        print(json.dumps(evaluate_saved(args.model),indent=2))
     elif args.command=='infer':
         from .inference import Predictor
         model=Predictor(args.model)
@@ -73,8 +69,27 @@ def main():
         rows=dataset['localizacoes']
         identities={(r['propriedade_id'],r['animal_id'],r['transmissor_id']) for r in rows}
         if len(identities)!=1: raise ValueError('Selecione histórico de um animal/transmissor')
-        prediction=model.predict(rows,next(iter(identities))[0])
+        prediction=model.predict(rows,next(iter(identities))[0],dataset.get('reference'))
         print(json.dumps({'status':model.status,'previsao':prediction},indent=2))
+    elif args.command=='export-experiment':
+        from .diagnostics import diagnose
+        from .datasets import seal_dataset
+        from .provenance import calibration_hash
+        db=Database.environment()
+        coords=db.rows('argos_posicoes_receptores',order='receptor_id')
+        reports,_=diagnose(db)
+        # Não reinterpreta o resultado se as coordenadas mudaram durante o ensaio.
+        if calibration_hash(coords,db.property_id)!=calibration_hash(db.rows('argos_posicoes_receptores',order='receptor_id'),db.property_id):
+            raise ValueError('calibracao_mudou_durante_exportacao')
+        rows=[{**r['posicao'], 'propriedade_id':r['propriedade_id'],
+            'transmissor_id':r['transmissor_id'],'evento_id':r['evento_id']} for r in reports if r['posicao']]
+        dataset=seal_dataset(rows,[],'experimental',dict(property_id=db.property_id,
+            version=os.getenv('ARGOS_REFERENCE_VERSION','development-unvalidated'),
+            calibration_sha256=calibration_hash(coords,db.property_id),validated=False,coordinates=coords))
+        Path(args.out).parent.mkdir(parents=True,exist_ok=True)
+        if Path(args.out).exists():raise ValueError('dataset_ja_existe_use_nova_versao')
+        save_json(args.out,dataset)
+        print(json.dumps({'source':'experimental','localizacoes':len(rows),'dataset_sha256':dataset['dataset_sha256']}))
     elif args.command=='reference':
         from .provenance import calibration_hash
         db=Database.environment()
@@ -93,12 +108,18 @@ def main():
         if not start or not end or start>=end: raise ValueError('periodo_invalido')
         db=Database.environment()
         if args.command=='prepare':
+            from .datasets import seal_dataset
+            from .provenance import calibration_hash,operational_reference
             bounds=f'(observado_em.gte.{start.isoformat()},observado_em.lt.{end.isoformat()})'
-            dataset=dict(source='supabase-reviewed' if args.reviewed_real_data else 'supabase-unreviewed',
-                localizacoes=db.rows('argos_localizacoes',**{'and':bounds,'order':'observado_em,id'}),
-                rotulos=db.rows('argos_observacoes_visao',**{'and':bounds,'order':'observado_em,id'}),
-                trusted_cameras=args.trusted_camera)
+            coords=db.rows('argos_posicoes_receptores',order='receptor_id')
+            reference=operational_reference(coords,db.property_id) if args.reviewed_real_data else dict(
+                property_id=db.property_id,version=os.getenv('ARGOS_REFERENCE_VERSION','development-unvalidated'),
+                calibration_sha256=calibration_hash(coords,db.property_id),validated=False)
+            dataset=seal_dataset(db.rows('argos_localizacoes',**{'and':bounds,'order':'observado_em,id'}),
+                db.rows('argos_observacoes_visao',**{'and':bounds,'order':'observado_em,id'}),
+                'real' if args.reviewed_real_data else 'experimental',reference,args.trusted_camera)
             Path(args.out).parent.mkdir(parents=True,exist_ok=True)
+            if Path(args.out).exists():raise ValueError('dataset_ja_existe_use_nova_versao')
             save_json(args.out,dataset)
             print(json.dumps({'localizacoes':len(dataset['localizacoes']),'rotulos':len(dataset['rotulos'])}))
         elif args.command=='requeue':

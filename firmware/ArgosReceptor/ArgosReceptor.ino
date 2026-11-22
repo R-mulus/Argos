@@ -10,12 +10,9 @@
 #include <ArgosProtocol.h>
 #include "ArgosConfig.h"
 #include "ArgosQueue.h"
+#include "ArgosNetworkClient.h"
 
-#if ARGOS_LOCAL_PLAINTEXT
-WiFiClient network;
-#else
-WiFiClientSecure network;
-#endif
+ArgosNetworkClient network;
 MqttClient mqtt(network);
 ReadingQueue storage;
 QueueHandle_t readings;
@@ -28,6 +25,7 @@ String topic;
 String recent[64];
 size_t recentCursor = 0;
 bool wifiWasConnected = false;
+uint32_t wifiDisconnects = 0;
 
 void halt(const char* reason) {
   Serial.println(reason);
@@ -95,6 +93,10 @@ void publishOne() {
 }
 void setup() {
   Serial.begin(115200);
+  Serial.printf("BUILD: ARGOS-RX-NETDIAG-1 %s %s origem=firmware/ArgosReceptor\n", __DATE__, __TIME__);
+  Serial.printf("CONFIG: broker=%s porta=%u modo=%s canal_config=%d timeout_ms=%u diagnostico=%d\n",
+    ARGOS_MQTT_HOST, unsigned(ARGOS_MQTT_PORT), ARGOS_LOCAL_PLAINTEXT ? "TCP_PURO" : "TLS",
+    ARGOS_WIFI_CHANNEL, unsigned(ARGOS_CONNECT_TIMEOUT_MS), ARGOS_NETWORK_DIAGNOSTICS);
   uint8_t receiver[16], property[16];
   if (!argos::parseUuid(ARGOS_DEVICE_ID, receiver) || !argos::parseUuid(ARGOS_PROPERTY_ID, property) ||
       !strlen(ARGOS_DEVICE_CODE) || strlen(ARGOS_BEACON_SECRET) < 32 || !strlen(ARGOS_WIFI_SSID) ||
@@ -119,10 +121,10 @@ void setup() {
   if (!strlen(ARGOS_MQTT_CA)) halt("TLS: configure a CA PEM do broker");
   network.setCACert(ARGOS_MQTT_CA); network.setHandshakeTimeout(5);
 #endif
-  network.setConnectionTimeout(2000);
+  network.setConnectionTimeout(ARGOS_CONNECT_TIMEOUT_MS);
   mqtt.setId(String("argos-rx-") + rx);
   mqtt.setUsernamePassword(ARGOS_MQTT_USER, ARGOS_MQTT_PASS);
-  mqtt.setConnectionTimeout(2000); mqtt.setKeepAliveInterval(15000);
+  mqtt.setConnectionTimeout(ARGOS_CONNECT_TIMEOUT_MS); mqtt.setKeepAliveInterval(15000);
   Serial.printf("RX %s MAC=%s canal=%d fila=%lu\n%s\n", ARGOS_DEVICE_CODE,
     WiFi.macAddress().c_str(), ARGOS_WIFI_CHANNEL, (unsigned long)storage.pending, topic.c_str());
 }
@@ -139,10 +141,15 @@ void loop() {
     nextWiFi = now + 30000; connected = false;
   }
   if (!connected && wifiWasConnected) {
+    ++wifiDisconnects;
     mqtt.stop(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
     Serial.println("WiFi: desconectado; fila em flash permanece");
   }
-  if (connected && !wifiWasConnected) Serial.printf("WiFi: IP=%s canal=%d\n", WiFi.localIP().toString().c_str(), WiFi.channel());
+  if (connected && !wifiWasConnected) {
+    Serial.printf("WiFi: IP=%s canal=%d estado=%d RSSI=%d gateway=%s mascara=%s quedas=%lu\n",
+      WiFi.localIP().toString().c_str(), WiFi.channel(), WiFi.status(), WiFi.RSSI(),
+      WiFi.gatewayIP().toString().c_str(), WiFi.subnetMask().toString().c_str(), (unsigned long)wifiDisconnects);
+  }
   wifiWasConnected = connected;
   if (!connected && int32_t(now - nextWiFi) >= 0) {
     WiFi.disconnect(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
@@ -153,10 +160,17 @@ void loop() {
   if (connected) {
     if (!mqtt.connected() && int32_t(now - nextMqtt) >= 0) {
       if (ARGOS_LOCAL_PLAINTEXT || reliableClock()) {
+#if ARGOS_NETWORK_DIAGNOSTICS
+        Serial.printf("MQTT: tentativa broker=%s:%u modo=%s IP_local=%s WiFi=%d canal=%d RSSI=%d flash=%lu RAM=%u\n",
+          ARGOS_MQTT_HOST, unsigned(ARGOS_MQTT_PORT), ARGOS_LOCAL_PLAINTEXT ? "TCP_PURO" : "TLS",
+          WiFi.localIP().toString().c_str(), WiFi.status(), WiFi.channel(), WiFi.RSSI(),
+          (unsigned long)storage.pending, unsigned(uxQueueMessagesWaiting(readings)));
+#endif
         if (mqtt.connect(ARGOS_MQTT_HOST, ARGOS_MQTT_PORT)) {
           backoff = 1000; Serial.println("MQTT: autenticado");
         } else {
-          Serial.printf("MQTT: connectError=%d (-2 TCP/TLS; -1 timeout; 4/5 credenciais/ACL)\n", mqtt.connectError());
+          Serial.printf("MQTT: connectError=%d WiFi=%d (-2 transporte antes do MQTT; -1 espera CONNACK; 4/5 autenticacao/autorizacao de conexao)\n",
+            mqtt.connectError(), WiFi.status());
           backoff = backoff < 30000 ? backoff * 2 : 60000;
         }
       } else Serial.println("TLS: aguardando sincronização NTP");

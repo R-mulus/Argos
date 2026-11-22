@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from argos_ml.config import SeriesConfig,LABELS
 from argos_ml.preprocessing import FEATURES,sequences,chronological_split
-from argos_ml.training import train,approve,regression_metrics
+from argos_ml.training import train,approve,regression_metrics,evaluate_saved
 from argos_ml.inference import Predictor
 from conftest import history,P
 
@@ -29,22 +29,30 @@ def test_train_save_load_predict_synthetic(tmp_path,task):
     assert output.shape==(1,2 if task=='position' else 4)
     # Força aprovação SOMENTE em diretório temporário para testar o caminho de inferência.
     original=dict(manifest)
-    manifest.update(approved=True,synthetic=False,reviewed_real_data=True,improves_baseline=True)
+    manifest.update(approved=True,synthetic=False,reviewed_real_data=True,improves_baseline=True,source='real',
+                    reference={**manifest['reference'],'validated':True})
     (directory/'manifest.json').write_text(json.dumps(manifest))
     predictor=Predictor(directory)
     # Nunca deixa artefato sintético marcado como aprovado, mesmo se alguma asserção falhar.
     (directory/'manifest.json').write_text(json.dumps(original))
     assert predictor.status=='disponivel'
-    result=predictor.predict(rows[-10:],P)
+    reference=manifest['reference']
+    result=predictor.predict(rows[-10:],P,reference)
     assert result is not None and result['previsto_para']>result['observado_em']
     if task=='position':assert result['comportamento'] is None
     else:assert sum(result['probabilidades'].values())==pytest.approx(1,abs=1e-5)
-    assert predictor.predict(rows[:2],P) is None
-    assert predictor.predict(rows,'wrong-property') is None
-    assert predictor.predict([{**r,'propriedade_id':'other'} for r in rows[-10:]],P) is None
-    assert predictor.predict(rows[-10:]+[{**rows[-1],'animal_id':'other'}],P) is None
+    assert predictor.predict(rows[:2],P,reference) is None
+    assert predictor.predict(rows,'wrong-property',reference) is None
+    assert predictor.predict(rows[-10:],P,{**reference,'version':'different'}) is None
+    assert predictor.predict([{**r,'propriedade_id':'other'} for r in rows[-10:]],P,reference) is None
+    assert predictor.predict(rows[-10:]+[{**rows[-1],'animal_id':'other'}],P,reference) is None
     predictor.model=lambda *a,**k: np.full((1,2 if task=='position' else 4),np.nan)
-    assert predictor.predict(rows[-10:],P) is None
+    assert predictor.predict(rows[-10:],P,reference) is None
+    evaluated=evaluate_saved(directory)
+    key='rmse_m' if task=='position' else 'classification_accuracy'
+    assert evaluated[key]==pytest.approx(original['evaluation'][key])
+    with (directory/'heldout.npz').open('ab') as altered:altered.write(b'changed')
+    with pytest.raises(ValueError):evaluate_saved(directory)
 
 
 def test_invalid_metrics():

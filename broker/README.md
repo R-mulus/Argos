@@ -64,6 +64,7 @@ Execute novamente `up -d` depois de alterar bind/portas; apenas `restart` não a
 
 Em outro computador da mesma rede: `Test-NetConnection <IP-LAN> -Port 1883`.
 Isso verifica TCP desse computador, não a conectividade física do ESP32.
+Se o ESP32 retornar `-2` apesar desse teste passar, siga o [diagnóstico do receptor e firewall](../docs/firmware/MQTT_MENOS_2.md).
 
 ## Autorização e manutenção
 

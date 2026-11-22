@@ -1,5 +1,6 @@
 from dataclasses import dataclass, asdict
 import math
+import os
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,15 @@ class SeriesConfig:
             raise ValueError('Configuração deve ser positiva e finita')
         if self.steps < 2 or self.horizon_s % self.interval_s or self.stationary_m_s >= self.moving_m_s:
             raise ValueError('Janela, horizonte ou limiares inválidos')
+        if any(type(v) is not int for v in (self.steps,self.interval_s,self.horizon_s,self.max_gap_s)):
+            raise ValueError('Passos e intervalos devem ser inteiros')
+        if self.steps>256 or self.interval_s>3600 or self.horizon_s>86400:
+            raise ValueError('Configuracao_temporal_fora_dos_limites')
+
+    @classmethod
+    def environment(cls):
+        defaults=cls()
+        return cls(**{key:type(value)(os.getenv('ARGOS_'+key.upper(),value)) for key,value in asdict(defaults).items()})
 
 
 LABELS = ['parado', 'comendo', 'em_movimento', 'outro']

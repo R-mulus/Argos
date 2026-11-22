@@ -10,6 +10,8 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 from .config import SeriesConfig, LABELS
 from .models import build_gru
 from .preprocessing import FEATURES, chronological_split, sequences, trusted_labels
+from .datasets import verify_dataset
+from .provenance import digest
 
 
 def regression_metrics(actual, predicted):
@@ -25,8 +27,13 @@ def save_json(path, value):
 
 
 def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
+    verify_dataset(dataset)
+    if epochs<1 or epochs>1000:
+        raise ValueError('epocas_invalidas')
     import tensorflow as tf
+    tf.config.set_visible_devices([], 'GPU')
     tf.keras.utils.set_random_seed(42)
+    tf.config.experimental.enable_op_determinism()
     directory = Path(directory)
     if directory.exists() and any(directory.iterdir()):
         raise ValueError('Use um diretório novo por versão de modelo')
@@ -36,7 +43,7 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
     if len(properties) != 1:
         raise ValueError('Treine uma propriedade/referencial por modelo')
     synthetic = dataset.get('source', '').startswith('synthetic')
-    reviewed = dataset.get('source') == 'supabase-reviewed'
+    reviewed = dataset.get('source') == 'real' and dataset.get('reference',{}).get('validated') is True
     labels = trusted_labels(dataset.get('rotulos', []), dataset.get('trusted_cameras', []), cfg) if task == 'behavior' else None
     splits = [sequences(part, cfg, labels) for part in chronological_split(rows)]
     if any(len(s[0]) < 2 for s in splits):
@@ -78,8 +85,11 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
         improves = evaluation['classification_accuracy'] > baseline['classification_accuracy']
     model.save(directory / 'model.keras')
     np.savez_compressed(directory / 'heldout.npz', x=xs[2], y=ys[2], baseline=splits[2][2])
-    manifest = dict(schema_version=1, model_version=directory.name, task=task, approved=False,
+    manifest = dict(schema_version=2, model_version=directory.name, task=task, approved=False,
         synthetic=synthetic, reviewed_real_data=reviewed, property_id=next(iter(properties)), config=asdict(cfg), features=FEATURES, labels=LABELS,
+        source=dataset['source'],reference=dataset.get('reference',dict(property_id=next(iter(properties)),
+            version='synthetic-test-only',calibration_sha256=digest('synthetic-test-only'),validated=False)),
+        seed=42,epochs_requested=epochs,batch_size=32,device='CPU',
         trained_at=datetime.now(timezone.utc).isoformat(), tensorflow_version=tf.__version__,
         model_parameters=model.count_params(), training_samples=len(xs[0]), validation_samples=len(xs[1]), test_samples=len(xs[2]),
         prediction_horizon_minutes=cfg.horizon_s/60, evaluation=evaluation, baseline=baseline, improves_baseline=bool(improves),
@@ -90,6 +100,7 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
         split_target_ranges=[[s[3][0], s[3][-1]] for s in splits],
         dataset_sha256=hashlib.sha256(json.dumps(dataset, sort_keys=True).encode()).hexdigest(),
         model_sha256=hashlib.sha256((directory/'model.keras').read_bytes()).hexdigest())
+    manifest['heldout_sha256']=hashlib.sha256((directory/'heldout.npz').read_bytes()).hexdigest()
     save_json(directory / 'manifest.json', manifest)
     return manifest
 
@@ -97,11 +108,34 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
 def approve(directory, reviewer):
     path = Path(directory) / 'manifest.json'
     m = json.loads(path.read_text())
-    if m['synthetic'] or not m.get('reviewed_real_data') or not m['improves_baseline'] or min(m[k] for k in ('training_samples','validation_samples','test_samples')) < 30:
+    if (m['synthetic'] or not m.get('reviewed_real_data') or m.get('source')!='real'
+            or not m.get('reference',{}).get('validated') or not m['improves_baseline']
+            or min(m[k] for k in ('training_samples','validation_samples','test_samples')) < 30):
         raise ValueError('Modelo sintético, amostras insuficientes ou sem melhoria sobre baseline')
     if not reviewer.strip():
         raise ValueError('Identifique o responsável pela validação de campo')
     if hashlib.sha256((Path(directory)/'model.keras').read_bytes()).hexdigest() != m['model_sha256']:
         raise ValueError('Modelo alterado após avaliação')
+    if hashlib.sha256((Path(directory)/'heldout.npz').read_bytes()).hexdigest()!=m['heldout_sha256']:
+        raise ValueError('Teste reservado alterado após avaliação')
     m.update(approved=True, approved_by=reviewer, approved_at=datetime.now(timezone.utc).isoformat())
     save_json(path, m)
+
+
+def evaluate_saved(directory):
+    import tensorflow as tf
+    directory=Path(directory)
+    m=json.loads((directory/'manifest.json').read_text())
+    for filename,key in [('model.keras','model_sha256'),('heldout.npz','heldout_sha256')]:
+        if hashlib.sha256((directory/filename).read_bytes()).hexdigest()!=m[key]:
+            raise ValueError('artefato_de_avaliacao_alterado')
+    model=tf.keras.models.load_model(directory/'model.keras',compile=False)
+    with np.load(directory/'heldout.npz',allow_pickle=False) as test:
+        prediction=np.asarray(model(test['x'],training=False))
+        if not np.isfinite(prediction).all():raise ValueError('resultado_nao_finito')
+        if m['task']=='position':
+            return regression_metrics(test['y'],prediction*m['target_scale']+m['target_mean'])
+        return dict(classification_accuracy=float(accuracy_score(test['y'],prediction.argmax(axis=1))),
+            confusion_matrix=confusion_matrix(test['y'],prediction.argmax(axis=1),labels=list(range(4))).tolist(),
+            per_class=classification_report(test['y'],prediction.argmax(axis=1),labels=list(range(4)),
+                target_names=LABELS,output_dict=True,zero_division=0))

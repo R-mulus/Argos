@@ -76,6 +76,8 @@ def summarize_movement(rows, start, end, period='dia', cfg=SeriesConfig()):
             velocidade_media_estimada_m_s=distance/covered if covered else None,
             cobertura_percentual=min(100,100*covered/duration), segundos_observados=covered,
             segundos_movimento_aparente=states['em_movimento_aparente'],
+            segundos_repouso_aparente=states['parado_aparente'],
+            segundos_indeterminados=states['indeterminado'],
             movimento_aparente={k:100*v/covered if covered else None for k,v in states.items()}))
     return dict(origem='derivado_rssi',periodo=period,pontos=points)
 

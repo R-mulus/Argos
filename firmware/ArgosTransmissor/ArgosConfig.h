@@ -5,7 +5,7 @@
 #else
 #include "ArgosSecrets.example.h"
 #endif
-#define ARGOS_WIFI_CHANNEL 6
+#define ARGOS_WIFI_CHANNEL 2
 #define ARGOS_INTERVAL_S 5
 #define ARGOS_REPETITIONS 3
 // Potência em unidades de 0,25 dBm: 52 = 13 dBm. Calibrar RSSI usando este valor.

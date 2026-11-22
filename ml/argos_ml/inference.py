@@ -22,8 +22,10 @@ class Predictor:
             if not m.get('approved') or m.get('synthetic', True) or not m.get('reviewed_real_data'):
                 self.status = 'nao_aprovado'
                 return
-            if m['schema_version'] != 1 or m['features'] != FEATURES or m['labels'] != LABELS:
+            if m['schema_version'] != 2 or m['features'] != FEATURES or m['labels'] != LABELS:
                 raise ValueError('contrato_modelo_incompativel')
+            if m.get('source')!='real' or not m.get('reference',{}).get('validated'):
+                raise ValueError('referencial_modelo_nao_validado')
             if m['task'] not in ('position', 'behavior') or not m['improves_baseline']:
                 raise ValueError('modelo_nao_validado')
             self.cfg = SeriesConfig(**m['config'])
@@ -41,8 +43,11 @@ class Predictor:
             self.model = None
             self.status = 'modelo_invalido_ou_tensorflow_indisponivel'
 
-    def predict(self, rows, property_id):
+    def predict(self, rows, property_id, reference=None):
         if self.model is None or property_id != self.meta['property_id']:
+            return None
+        if not reference or any(reference.get(k)!=self.meta['reference'].get(k)
+                                for k in ('property_id','version','calibration_sha256','validated')):
             return None
         identities = {(r.get('propriedade_id'),r.get('animal_id'),r.get('transmissor_id')) for r in rows}
         if len(identities) != 1 or any(p != property_id or a is None or t is None for p,a,t in identities):
