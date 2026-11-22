@@ -105,6 +105,9 @@ def test_treino_sem_vazamento_entre_cortes(tmp_path):
     assert ranges[0][1]<ranges[1][0] and ranges[1][1]<ranges[2][0]
     with pytest.raises(ValueError): dataset(path,['1','2','3'],8,30,'outra')
 
-def test_copias_protocolo_iguais():
+def test_protocolo_em_biblioteca_unica():
+    # Desde a integração da backend-iot, coleira e receptor usam firmware/libraries/ArgosProtocol.
     root=Path(__file__).resolve().parents[2]
-    assert (root/'firmware/ArgosTransmissor/ArgosProtocol.h').read_bytes()==(root/'firmware/ArgosReceptor/ArgosProtocol.h').read_bytes()
+    assert (root/'firmware/libraries/ArgosProtocol/src/ArgosProtocol.h').is_file()
+    assert not (root/'firmware/ArgosTransmissor/ArgosProtocol.h').exists()
+    assert not (root/'firmware/ArgosReceptor/ArgosProtocol.h').exists()

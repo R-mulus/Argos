@@ -1,0 +1,14 @@
+# Requer private/tls/fullchain.pem e private/tls/privkey.pem emitidos para o hostname real.
+services:
+  emqx:
+    environment:
+      EMQX_LISTENERS__TCP__DEFAULT__ENABLE: 'false'
+      EMQX_LISTENERS__SSL__DEFAULT__ENABLE: 'true'
+      EMQX_LISTENERS__SSL__DEFAULT__BIND: '0.0.0.0:8883'
+      EMQX_LISTENERS__SSL__DEFAULT__ENABLE_AUTHN: 'true'
+      EMQX_LISTENERS__SSL__DEFAULT__SSL_OPTIONS__CERTFILE: /opt/emqx/etc/argos-tls/fullchain.pem
+      EMQX_LISTENERS__SSL__DEFAULT__SSL_OPTIONS__KEYFILE: /opt/emqx/etc/argos-tls/privkey.pem
+    ports:
+      - '${MQTT_BIND_HOST:-127.0.0.1}:${MQTT_TLS_PORT:-8883}:8883'
+    volumes:
+      - ./private/tls:/opt/emqx/etc/argos-tls:ro

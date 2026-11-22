@@ -46,3 +46,18 @@ supabase/.temp/
 # Ambiente virtual do worker Python (scripts/configurar-worker-python.ps1)
 .venv/
 __pycache__/
+# Integração backend-iot (ML, worker de ingestão, broker e firmware)
+**/ArgosDevice.local.h
+.build/
+.tools/
+*.bin
+*.elf
+*.map
+broker/private/
+worker/data/
+*.sqlite
+*.sqlite-*
+ml/data/
+ml/model/artifacts/
+ml/test-artifacts/
+ml/.pytest-tmp/

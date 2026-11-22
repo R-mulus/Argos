@@ -172,3 +172,4 @@ export interface GeometriaZona {
   pontos: [number, number][];
   atualizado_em: string;
 }
+export type { OrigemML, ClasseML, LocalizacaoML, PredicaoML, ComportamentosML, AnaliseML, ModeloML, PainelML } from './ml.js';

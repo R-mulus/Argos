@@ -1,29 +1,29 @@
 #pragma once
-// Mesmo sketch em S3, DevKit V1 e ESP32-U; altere identidade por equipamento.
-#define ARGOS_PROPERTY_UUID "8da8c584-e51b-4b99-808d-8cf55cee7674"
-#define ARGOS_RECEIVER_UUID "9b3cc23c-7c82-4105-96ad-9e6ee7d7c607"
-#define ARGOS_WIFI_CHANNEL 6 // Canal 2,4 GHz fixo do roteador/hotspot; igual ao das coleiras.
-// NTP: IP de um servidor local opcional ("" = nenhum). O gateway do Wi-Fi e ARGOS_NTP_FALLBACK
-// também são consultados; sem internet, o notebook/roteador precisa servir NTP (docs/iot/ENSAIO.md).
-#define ARGOS_NTP_SERVER ""
-#define ARGOS_NTP_FALLBACK "pool.ntp.org"
-// Leituras feitas antes do NTP ficam retidas na flash até este tempo após o boot, à espera da hora.
-#define ARGOS_TIME_WAIT_S 600
-#define ARGOS_LOCAL_PLAINTEXT 0 // Somente laboratório em LAN isolada: 1 (porta 1883, sem TLS).
-#define ARGOS_MQTT_PORT (ARGOS_LOCAL_PLAINTEXT ? 1883 : 8883)
-#define ARGOS_FORMAT_FLASH 0 // 1 apenas no provisionamento inicial; voltar a 0.
-#define ARGOS_MAX_FILES 512
-#define ARGOS_OLED 0
-#define ARGOS_OLED_SDA 21
-#define ARGOS_OLED_SCL 22
+#include "ArgosDevice.h"
 #if __has_include("ArgosSecrets.h")
 #include "ArgosSecrets.h"
 #else
-#define ARGOS_BEACON_SECRET ""
-#define ARGOS_WIFI_SSID ""
-#define ARGOS_WIFI_PASS ""
-#define ARGOS_MQTT_HOST ""
-#define ARGOS_MQTT_USER ""
-#define ARGOS_MQTT_PASS ""
-#define ARGOS_MQTT_CA ""
+#include "ArgosSecrets.example.h"
 #endif
+#define ARGOS_WIFI_CHANNEL 2
+#define ARGOS_NTP_SERVER "pool.ntp.org"
+// 1 somente para laboratório em LAN controlada; produção: 0 e porta 8883.
+#ifndef ARGOS_LOCAL_PLAINTEXT
+#define ARGOS_LOCAL_PLAINTEXT 1
+#endif
+#ifndef ARGOS_MQTT_PORT
+#define ARGOS_MQTT_PORT 1883
+#endif
+// 1 somente no primeiro provisionamento, depois voltar a 0. Não formata se montar.
+#define ARGOS_FORMAT_FLASH 0
+#define ARGOS_MAX_FILES 512
+#define ARGOS_RAM_READINGS 128
+// Diagnostica a conexão usada pelo MQTT, sem abrir um segundo socket de teste.
+#ifndef ARGOS_NETWORK_DIAGNOSTICS
+#define ARGOS_NETWORK_DIAGNOSTICS 1
+#endif
+#define ARGOS_CONNECT_TIMEOUT_MS 2000
+static_assert(ARGOS_LOCAL_PLAINTEXT == 0 || ARGOS_LOCAL_PLAINTEXT == 1, "Modo MQTT deve ser 0 ou 1");
+static_assert(ARGOS_MQTT_PORT > 0 && ARGOS_MQTT_PORT <= 65535, "Porta MQTT inválida");
+static_assert(ARGOS_WIFI_CHANNEL >= 1 && ARGOS_WIFI_CHANNEL <= 11, "Canal deve ser 1..11");
+static_assert(ARGOS_MAX_FILES > 0 && ARGOS_RAM_READINGS > 0, "Fila inválida");

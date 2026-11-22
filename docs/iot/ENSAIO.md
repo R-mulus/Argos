@@ -82,33 +82,19 @@ Rode com `powershell -ExecutionPolicy Bypass -File scripts\<nome>.ps1`. Os passo
 
 ## 3. Firmware do receptor
 
-Em `firmware/ArgosReceptor/`, copie `ArgosSecrets.h.example` para `ArgosSecrets.h` e preencha SSID, senha,
-usuário/senha MQTT do receptor e o mesmo `ARGOS_BEACON_SECRET` das coleiras. Em `ArgosConfig.h`:
+Desde a integração da `backend-iot` (22/11/2026), o firmware é o do Larápio, usado no ensaio físico de
+20/11: identidade em `ArgosDevice.local.h`, credenciais em `ArgosSecrets.h` (modelo `ArgosSecrets.example.h`),
+protocolo em `firmware/libraries/ArgosProtocol` e compilação com `scripts\compile-firmware.ps1`. Siga
+`firmware/README.md` (seções 2 a 7), que também explica as mensagens do Serial e o erro MQTT -2
+(`docs/firmware/MQTT_MENOS_2.md`).
 
-| Item | Ensaio | Observação |
-|---|---|---|
-| `ARGOS_RECEIVER_UUID` | RX-001 `9b3cc23c-…`, RX-002 `45bd6322-…`, RX-003 `83bba45a-…` | Um por placa |
-| `ARGOS_LOCAL_PLAINTEXT` | `1` | Porta passa a 1883 automaticamente. O TLS 8883 do EMQX usa o certificado padrão da imagem, que o ESP32 não valida |
-| `ARGOS_MQTT_HOST` (secrets) | IP do notebook, ou `"gateway"` no hotspot do notebook | Nunca `localhost`/`127.0.0.1` |
-| `ARGOS_WIFI_CHANNEL` | canal 2,4 GHz da rede | Igual nas coleiras |
-| `ARGOS_NTP_SERVER` | `""` ou IP do notebook | O gateway e `pool.ntp.org` já são consultados |
+Valores do ensaio: `ARGOS_LOCAL_PLAINTEXT=1` (porta 1883), `ARGOS_MQTT_HOST` = IP do notebook na rede dos
+receptores (nunca `localhost`), mesmo canal 2,4 GHz em coleiras e receptores, `ARGOS_NTP_SERVER` alcançável.
+UUIDs: RX-001 `9b3cc23c-…`, RX-002 `45bd6322-…`, RX-003 `83bba45a-…`, coleira TX-0001 `3fa85f64-…`.
 
-Coleira: `firmware/ArgosTransmissor/ArgosConfig.h` com `ARGOS_TRANSMITTER_UUID` = TX-0001
-`3fa85f64-5717-4562-b3fc-2c963f66afa6` (vinculada ao animal A001 desde 16/11 14:29 UTC) e o mesmo canal.
-
-### Monitor Serial (115200)
-
-| Mensagem | Significado / ação |
-|---|---|
-| `[WiFi] desconectado (201)` | Rede não achada no canal: SSID, banda 2,4 GHz, canal |
-| `[WiFi] desconectado (15/202/204)` | Senha do Wi-Fi |
-| `[WiFi] ponto de acesso no canal X; coleiras no canal Y` | Fixe o canal ou recompile; o receptor continua captando na flash |
-| `[WiFi] conectado ... IP ... gateway ... canal ...` | Confira se o IP está na mesma faixa do notebook |
-| `[Hora] sincronizada: ...` | NTP ok; leituras retidas recebem o horário real |
-| `[MQTT] falha ... (-2)` | IP/porta errados, EMQX parado ou firewall |
-| `[MQTT] falha ... (4)` / `(5)` | Usuário/senha MQTT / sem permissão |
-| `[MQTT] publicacao sem PUBACK` | Broker caiu ou ACL com `disconnect`; o evento é reenviado |
-| `[Status] ... Fila:N Perdidas:N HoraRecuperada:N SemHora:N` | A cada 5 s. `SemHora` > 0 indica leituras que não entrarão na contagem |
+Pendente de portar do firmware de 19/11 (commit `5cf7082`, só compilado, nunca gravado): horário real para
+leituras feitas antes do NTP no mesmo boot, NTP e MQTT pelo gateway do Wi-Fi (`"gateway"`). No firmware atual,
+leitura sem relógio confiável segue com `detectado_em: null` e não entra na contagem.
 
 ## 4. Etapas de validação
 

@@ -1,0 +1,5 @@
+{
+  "receivers": [
+    { "id": "UUID_REAL_DO_RECEPTOR", "propertyId": "UUID_REAL_DA_PROPRIEDADE" }
+  ]
+}

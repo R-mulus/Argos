@@ -61,11 +61,26 @@ coleira; 462 com `detectado_em`, 462 com vínculo, **0 com zona**. `argos_iot_jo
 8. **Previsões sem comportamento.** `ml/sql/proposta_predicao_posicao.sql` virou
    `20261122184338_argos_predicoes_sem_comportamento.sql` na `dev`, aplicada em 22/11/2026. `PredicaoIoT` em
    `@argos/shared` passou a aceitar `comportamento`, `confianca` e `probabilidades` nulos.
-9. **Firmware.** As duas branches alteraram `firmware/ArgosReceptor/ArgosReceptor.ino`: a `dev` local
-   (horário recuperado após NTP, diagnóstico no Serial, canal divergente sem travar) e a `backend-iot`
-   (`ArgosNetworkClient.h`, tratamento do erro MQTT -2). Exige merge manual.
+9. **Firmware.** Resolvido na branch `integracao/ml-backend-iot`: adotado o firmware da `backend-iot`
+   (gravado nas placas em 20/11). As melhorias de 19/11 da `dev` (horário recuperado após NTP, gateway como
+   NTP/MQTT) ficam como pendência de porte, registrada em `docs/iot/ENSAIO.md`.
 10. **Geometria da GRU.** A verificação de geometria feita em `iot/` (19/11) fica obsoleta se `ml/`
     substituir `iot/`: o `ml/` já recusa inferência com referencial incompatível.
+
+## 2.1 Integração seletiva feita em 22/11/2026 (branch `integracao/ml-backend-iot`)
+
+Trazidos da `backend-iot` sem alterar o conteúdo: `ml/`, `worker/`, `broker/`, `firmware/` (inteiro),
+`docs/scrum/`, `docs/backend-iot/`, `docs/firmware/`, `tests/host/`, `shared/ml.ts` (reexportado em
+`shared/index.ts`) e os scripts `allow-mqtt-esp32`, `compile-firmware`, `repair-docker-mqtt-firewall` e
+`test-protocol`. Mantidos da `dev`: migrations, seeds, `iot/`, `backend/src/mqtt`, CI, `AGENTS.md`,
+`ARGOS_CONTEXT.md`, `docker-compose.yml` da raiz e `docs/iot/`. **Não trazidos:** `backend/src/controllers/ml.controller.ts`,
+`backend/src/services/ml.service.ts` e a rota `/api/iot/analise` (seção 2.5). Ajustes: `.gitignore` com as
+entradas da `backend-iot`, CI compilando o firmware com `--libraries firmware/libraries` e o teste de
+`iot/` que comparava as duas cópias do protocolo passou a conferir a biblioteca única.
+
+Os dois composes do EMQX (`docker-compose.yml` da raiz e `broker/docker-compose.yml`) criam containers
+diferentes; use só um. O de `broker/` publica a 1883 apenas em `127.0.0.1` por padrão
+(`MQTT_BIND_HOST`): para os ESP32 alcançarem o broker, defina o IP da LAN, como em `broker/README.md`.
 
 ## 3. O que o backend já fornece e o frontend já consome
 

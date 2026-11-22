@@ -2,281 +2,189 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoMqttClient.h>
 #include <ArduinoJson.h>
-#include <LittleFS.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <esp_sntp.h>
 #include <time.h>
-#include <sys/time.h>
-#include <esp_timer.h>
 #include <atomic>
-#include "ArgosProtocol.h"
-#if ARGOS_OLED
-#include <Wire.h>
-#include <Adafruit_SSD1306.h>
-Adafruit_SSD1306 oled(128,64,&Wire,-1);
-bool oledReady=false;
-#endif
-#if ARGOS_LOCAL_PLAINTEXT
-WiFiClient network;
-#else
-WiFiClientSecure network;
-#endif
-MqttClient mqtt(network);
-// observedMs: UTC em ms (0 = relógio ainda sem NTP); monoMs: relógio monotônico desde o boot.
-struct Reading { ArgosBeacon beacon; int8_t rssi; int64_t observedMs; int64_t monoMs; };
-QueueHandle_t readings;
-std::atomic<uint32_t> lost{0};
-uint32_t pending=0, nextWiFi=0, nextMqtt=0, lastPanel=0;
-uint32_t mqttBackoff=1000;
-uint32_t bootId=0, nextScan=0;
-std::atomic<uint8_t> wifiReason{0};
-uint8_t lastReason=0;
-int lastMqttError=0;
-bool wasConnected=false, mqttWasConnected=false, clockWasValid=false;
-uint32_t recoveredTimes=0, nullTimes=0;
-String topic, mqttHost;
-String lastEvents[64]; size_t eventCursor=0;
+#include <ArgosProtocol.h>
+#include "ArgosConfig.h"
+#include "ArgosQueue.h"
+#include "ArgosNetworkClient.h"
 
-void onReceive(const esp_now_recv_info_t* info,const uint8_t* data,int length) {
-  if (!info || !info->rx_ctrl || length != sizeof(ArgosBeacon)) return;
-  Reading r={}; memcpy(&r.beacon,data,sizeof(r.beacon));
-  r.rssi=info->rx_ctrl->rssi;
-  // Captura na recepção, nunca no envio do buffer.
-  struct timeval tv; gettimeofday(&tv,nullptr);
-  r.observedMs=tv.tv_sec>=1700000000 ? (int64_t)tv.tv_sec*1000+tv.tv_usec/1000 : 0;
-  r.monoMs=esp_timer_get_time()/1000;
-  if (xQueueSend(readings,&r,0) != pdTRUE) lost.fetch_add(1);
+ArgosNetworkClient network;
+MqttClient mqtt(network);
+ReadingQueue storage;
+QueueHandle_t readings;
+std::atomic<uint32_t> lost{0}, malformed{0};
+std::atomic<bool> clockSynced{false};
+std::atomic<uint32_t> syncMillis{0};
+uint32_t rejected = 0, duplicates = 0, published = 0;
+uint32_t nextWiFi = 0, nextMqtt = 0, lastReport = 0, backoff = 1000;
+String topic;
+String recent[64];
+size_t recentCursor = 0;
+bool wifiWasConnected = false;
+uint32_t wifiDisconnects = 0;
+
+void halt(const char* reason) {
+  Serial.println(reason);
+  while (true) delay(1000);
 }
-void halt(const char* reason) { Serial.println(reason); while(true) delay(1000); }
-bool clockValid() { return time(nullptr)>=1700000000; }
-int64_t nowEpochMs() { struct timeval tv; gettimeofday(&tv,nullptr); return (int64_t)tv.tv_sec*1000+tv.tv_usec/1000; }
-int64_t monoMs() { return esp_timer_get_time()/1000; }
-void isoUtc(int64_t ms,char* out,size_t size) {
-  time_t seconds=ms/1000; struct tm utc; gmtime_r(&seconds,&utc);
-  size_t n=strftime(out,size,"%Y-%m-%dT%H:%M:%S",&utc);
-  snprintf(out+n,size-n,".%03dZ",(int)(ms%1000));
+void onTimeSync(struct timeval*) {
+  syncMillis.store(millis()); clockSynced.store(true);
 }
-const char* wifiReasonText(uint8_t reason) {
-  switch(reason) {
-    case 201: return "rede nao encontrada: confira o SSID, se a rede e 2,4 GHz e se o canal do roteador e ARGOS_WIFI_CHANNEL";
-    case 15: case 202: case 204: return "falha de autenticacao: confira a senha do Wi-Fi";
-    case 203: return "associacao recusada pelo ponto de acesso";
-    case 200: return "sinal perdido (beacon timeout)";
-    case 8: return "desconectado pelo proprio receptor";
-    default: return "consulte wifi_err_reason_t do ESP-IDF";
-  }
+bool reliableClock() {
+  // Exige sincronização nesta inicialização e no máximo 24h de deriva sem NTP.
+  return clockSynced.load() && uint32_t(millis() - syncMillis.load()) < 86400000UL;
 }
-const char* mqttErrorText(int error) {
-  switch(error) {
-    case -2: return "conexao TCP recusada ou sem rota: IP do notebook, porta, EMQX rodando, firewall do Windows, TLS/CA";
-    case -1: return "tempo esgotado sem CONNACK: porta/TLS trocados ou broker sobrecarregado";
-    case 1: return "versao do protocolo recusada";
-    case 2: return "client id recusado";
-    case 3: return "broker indisponivel";
-    case 4: return "usuario ou senha MQTT incorretos";
-    case 5: return "nao autorizado: usuario sem permissao no EMQX";
-    default: return "erro desconhecido";
-  }
+void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length) {
+  if (!info || !info->rx_ctrl || !data || length != sizeof(argos::Beacon)) { ++malformed; return; }
+  StoredReading r = {};
+  memcpy(&r.beacon, data, sizeof(r.beacon));
+  r.rssi = info->rx_ctrl->rssi;
+  // Copia o horário observado agora; não usa o horário de publicação após reconectar.
+  time_t now = time(nullptr);
+  r.observed = reliableClock() && now >= 1700000000LL ? now : 0;
+  if (xQueueSend(readings, &r, 0) != pdTRUE) ++lost;
 }
-// NTP: servidor local opcional, gateway do Wi-Fi (notebook/roteador) e servidor público de reserva.
-// O SNTP guarda o ponteiro do nome: o buffer do gateway precisa ser estático.
-void configureClock() {
-  static char gateway[16];
-  strlcpy(gateway,WiFi.gatewayIP().toString().c_str(),sizeof(gateway));
-  if(strlen(ARGOS_NTP_SERVER)) configTime(0,0,ARGOS_NTP_SERVER,gateway,ARGOS_NTP_FALLBACK);
-  else configTime(0,0,gateway,ARGOS_NTP_FALLBACK);
-  Serial.printf("[Hora] NTP: %s %s %s\n",ARGOS_NTP_SERVER,gateway,ARGOS_NTP_FALLBACK);
-}
-// "gateway" usa o IP do ponto de acesso, útil quando o notebook com EMQX é o próprio hotspot.
-String resolveMqttHost() {
-  String host=ARGOS_MQTT_HOST;
-  return host=="gateway" ? WiFi.gatewayIP().toString() : host;
-}
-void persist() {
-  Reading r;
-  // Limite por passagem preserva tempo para rede e watchdog.
-  for(int i=0;i<32 && xQueueReceive(readings,&r,0)==pdTRUE;i++) {
-    if (!verifyBeacon(r.beacon)) continue;
-    char id[80], tx[37]; eventId(r.beacon,id,sizeof(id)); formatUuid(r.beacon.transmitter,tx);
-    bool duplicate=false;
-    for (const auto& e:lastEvents) if(e==id) duplicate=true;
-    if(duplicate) continue;
-    // Sem relógio: grava o instante monotônico deste boot (_b/_ms, campos locais que nunca vão
-    // ao MQTT). publishOne converte para UTC quando o NTP sincronizar; após reinício não há
-    // referência confiável e o contrato v1 segue com null.
-    String name=String("/q/")+id+".json";
-    if(LittleFS.exists(name)) continue;
-    if(pending>=ARGOS_MAX_FILES || LittleFS.totalBytes()-LittleFS.usedBytes()<8192) {
-      lost.fetch_add(1); continue; // Preserva os eventos antigos; contador visível.
+void persistReadings() {
+  StoredReading r;
+  for (int i = 0; i < 16 && xQueueReceive(readings, &r, 0) == pdTRUE; ++i) {
+    if (!argos::verify(r.beacon, ARGOS_BEACON_SECRET) || r.rssi < -127 || r.rssi > 0) { ++rejected; continue; }
+    char event[80]; argos::eventId(r.beacon, event, sizeof(event));
+    bool seen = false;
+    for (const auto& value : recent) if (value == event) { seen = true; break; }
+    if (seen) { ++duplicates; continue; }
+    if (storage.append(r)) recent[recentCursor++ % 64] = event;
+    else {
+      ++lost;
+      // Erro de rename não pode fazer a próxima escrita destruir o temporário durável.
+      if (LittleFS.exists("/writing.tmp")) halt("FLASH: escrita pendente preservada; reinicie para recuperar");
     }
-    JsonDocument doc;
-    doc["versao"]=1; doc["evento_id"]=id; doc["transmissor_id"]=tx; doc["rssi_dbm"]=(int)r.rssi;
-    if(r.beacon.battery<=100) doc["bateria_percentual"]=r.beacon.battery;
-    if(r.observedMs>0) {
-      char iso[32]; isoUtc(r.observedMs,iso,sizeof(iso)); doc["detectado_em"]=iso;
-    } else {
-      doc["detectado_em"]=nullptr; doc["_b"]=bootId; doc["_ms"]=(long long)r.monoMs;
-    }
-    File f=LittleFS.open("/writing.tmp","w");
-    size_t expected=measureJson(doc);
-    if(!f) {lost.fetch_add(1);continue;}
-    size_t written=serializeJson(doc,f); f.flush(); f.close();
-    // Rename atômico LittleFS: queda de energia deixa arquivo completo ou .tmp.
-    if(written!=expected || !LittleFS.rename("/writing.tmp",name)) {lost.fetch_add(1);continue;}
-    pending++; lastEvents[eventCursor++%64]=id;
   }
-}
-// Prepara o JSON do contrato v1. false = leitura deste boot ainda aguardando o NTP.
-bool prepareForPublish(JsonDocument& doc) {
-  if(!doc["_ms"].is<long long>()) return true;
-  uint32_t boot=doc["_b"].as<uint32_t>(); long long captured=doc["_ms"].as<long long>();
-  if(boot==bootId && captured<=monoMs()) {
-    if(clockValid()) {
-      char iso[32]; isoUtc(nowEpochMs()-(monoMs()-captured),iso,sizeof(iso));
-      doc["detectado_em"]=iso; recoveredTimes++;
-    } else if(monoMs()<(int64_t)ARGOS_TIME_WAIT_S*1000) return false;
-    else nullTimes++;
-  } else nullTimes++;
-  doc.remove("_b"); doc.remove("_ms");
-  return true;
 }
 void publishOne() {
-  if(!mqtt.connected() || !pending || (int32_t)(millis()-nextScan)<0) return;
-  File directory=LittleFS.open("/q");
-  String path, payload, corrupted;
-  for(int i=0;i<64;i++) {
-    File f=directory.openNextFile(); if(!f) break;
-    String candidate=f.path(); String body=f.readString(); f.close();
-    JsonDocument doc;
-    if(deserializeJson(doc,body)) {corrupted=candidate; break;}
-    if(!prepareForPublish(doc)) continue;
-    path=candidate; serializeJson(doc,payload); break;
+  if (!mqtt.connected() || !storage.pending) return;
+  StoredReading r = {}; String path;
+  if (!storage.first(r, path)) return;
+  char event[80], tx[37];
+  argos::eventId(r.beacon, event, sizeof(event)); argos::formatUuid(r.beacon.transmitter, tx);
+  JsonDocument doc;
+  doc["versao"] = 1; doc["evento_id"] = event; doc["transmissor_id"] = tx;
+  doc["rssi_dbm"] = int(r.rssi);
+  if (r.beacon.battery <= 100) doc["bateria_percentual"] = r.beacon.battery;
+  else doc["bateria_percentual"] = nullptr;
+  if (r.observed) {
+    char iso[24]; struct tm utc; time_t observed = r.observed;
+    gmtime_r(&observed, &utc); strftime(iso, sizeof(iso), "%Y-%m-%dT%H:%M:%SZ", &utc);
+    doc["detectado_em"] = iso;
+  } else doc["detectado_em"] = nullptr;
+  char payload[384]; size_t expected = measureJson(doc);
+  if (expected >= sizeof(payload)) halt("JSON: tamanho inesperado");
+  serializeJson(doc, payload, sizeof(payload));
+  // 0.1.8 endMessage aguarda PUBACK para QoS 1. Só então remove da flash.
+  if (!mqtt.beginMessage(topic.c_str(), (unsigned long)expected, false, 1) ||
+      mqtt.write(reinterpret_cast<const uint8_t*>(payload), expected) != expected || !mqtt.endMessage()) {
+    Serial.println("MQTT: publicação/PUBACK falhou; evento continua na flash"); mqtt.stop(); return;
   }
-  directory.close();
-  if(corrupted.length()) {
-    String quarantine=String("/quarantine/")+corrupted.substring(corrupted.lastIndexOf('/')+1);
-    if(LittleFS.rename(corrupted,quarantine)) {pending--;lost.fetch_add(1);}
-    Serial.println("[Fila] arquivo corrompido separado em /quarantine"); return;
-  }
-  if(!path.length()) {nextScan=millis()+1000; return;} // tudo aguardando hora
-  // ArduinoMqttClient 0.1.8 endMessage aguarda PUBACK no QoS1.
-  mqtt.beginMessage(topic.c_str(),(unsigned long)payload.length(),false,1);
-  mqtt.print(payload);
-  if(mqtt.endMessage()) {
-    if(LittleFS.remove(path)) pending--;
-  } else {
-    Serial.println("[MQTT] publicacao sem PUBACK; reconectando e reenviando o mesmo evento");
-    mqtt.stop(); // Backend garante idempotência.
-  }
+  if (storage.acknowledge(path)) ++published;
+  else Serial.println("FLASH: PUBACK recebido mas remoção falhou; reenvio será deduplicado pelo banco");
 }
 void setup() {
   Serial.begin(115200);
-  uint8_t uuid[16];
-  if(!parseUuid(ARGOS_PROPERTY_UUID,uuid) || !parseUuid(ARGOS_RECEIVER_UUID,uuid) || strlen(ARGOS_BEACON_SECRET)<32)
-    halt("Configure identidade e ArgosSecrets.h");
-  if(!strlen(ARGOS_WIFI_SSID) || !strlen(ARGOS_MQTT_HOST)) halt("Configure ARGOS_WIFI_SSID e ARGOS_MQTT_HOST em ArgosSecrets.h");
-  bootId=esp_random();
-  readings=xQueueCreate(256,sizeof(Reading)); if(!readings) halt("Fila RAM indisponível");
-  if(!LittleFS.begin(false)) {
-#if ARGOS_FORMAT_FLASH
-    if(!LittleFS.format() || !LittleFS.begin(false)) halt("Falha LittleFS");
-#else
-    halt("LittleFS não montou; formatação automática desativada");
-#endif
-  }
-  LittleFS.mkdir("/q"); LittleFS.mkdir("/quarantine");
-  // Recupera escrita completa interrompida antes do rename; parcial é contabilizada.
-  if(LittleFS.exists("/writing.tmp")) {
-    File f=LittleFS.open("/writing.tmp"); JsonDocument d; auto error=deserializeJson(d,f); f.close();
-    if(!error && d["evento_id"].is<const char*>()) {
-      String path=String("/q/")+d["evento_id"].as<const char*>()+".json";
-      if(!LittleFS.exists(path) && !LittleFS.rename("/writing.tmp",path))
-        halt("Falha ao recuperar escrita: temporário preservado");
-    } else lost.fetch_add(1);
-    LittleFS.remove("/writing.tmp");
-  }
-  File dir=LittleFS.open("/q"); for(File f=dir.openNextFile();f;f=dir.openNextFile()) {pending++;f.close();} dir.close();
-  topic=String("argos/v1/propriedades/")+ARGOS_PROPERTY_UUID+"/receptores/"+ARGOS_RECEIVER_UUID+"/deteccoes";
+  Serial.printf("BUILD: ARGOS-RX-NETDIAG-1 %s %s origem=firmware/ArgosReceptor\n", __DATE__, __TIME__);
+  Serial.printf("CONFIG: broker=%s porta=%u modo=%s canal_config=%d timeout_ms=%u diagnostico=%d\n",
+    ARGOS_MQTT_HOST, unsigned(ARGOS_MQTT_PORT), ARGOS_LOCAL_PLAINTEXT ? "TCP_PURO" : "TLS",
+    ARGOS_WIFI_CHANNEL, unsigned(ARGOS_CONNECT_TIMEOUT_MS), ARGOS_NETWORK_DIAGNOSTICS);
+  uint8_t receiver[16], property[16];
+  if (!argos::parseUuid(ARGOS_DEVICE_ID, receiver) || !argos::parseUuid(ARGOS_PROPERTY_ID, property) ||
+      !strlen(ARGOS_DEVICE_CODE) || strlen(ARGOS_BEACON_SECRET) < 32 || !strlen(ARGOS_WIFI_SSID) ||
+      !strlen(ARGOS_MQTT_HOST) || !strlen(ARGOS_MQTT_USER) || !strlen(ARGOS_MQTT_PASS))
+    halt("CONFIG: preencha ArgosDevice.local.h e ArgosSecrets.h");
+  if (!strcmp(ARGOS_MQTT_HOST, "localhost") || !strcmp(ARGOS_MQTT_HOST, "127.0.0.1"))
+    halt("CONFIG: MQTT exige IP LAN/hostname do broker");
+  char rx[37], farm[37]; argos::formatUuid(receiver, rx); argos::formatUuid(property, farm);
+  topic = String("argos/v1/propriedades/") + farm + "/receptores/" + rx + "/deteccoes";
+  if (!storage.begin(topic)) halt("FLASH: fila indisponível; corrija antes de receber dados");
+  readings = xQueueCreate(ARGOS_RAM_READINGS, sizeof(StoredReading));
+  if (!readings) halt("RAM: não foi possível criar fila");
   WiFi.mode(WIFI_STA); WiFi.setSleep(false); WiFi.setAutoReconnect(false);
-  esp_wifi_set_channel(ARGOS_WIFI_CHANNEL,WIFI_SECOND_CHAN_NONE);
-  if(esp_now_init()!=ESP_OK) halt("ESP-NOW indisponível");
-  esp_now_register_recv_cb(onReceive);
-  WiFi.onEvent([](WiFiEvent_t,WiFiEventInfo_t info){ wifiReason.store(info.wifi_sta_disconnected.reason); },
-    ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  Serial.printf("[Argos] receptor %s | propriedade %s | canal %d | MQTT %s:%d %s\n",
-    ARGOS_RECEIVER_UUID,ARGOS_PROPERTY_UUID,ARGOS_WIFI_CHANNEL,ARGOS_MQTT_HOST,ARGOS_MQTT_PORT,
-    ARGOS_LOCAL_PLAINTEXT?"sem TLS (laboratorio)":"TLS");
-  Serial.printf("[Fila] %lu leituras pendentes na flash\n",(unsigned long)pending);
+  if (esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE) != ESP_OK)
+    halt("RADIO: canal inválido");
+  // Retenta inicialização sem reiniciar nem apagar a fila persistente.
+  while (esp_now_init() != ESP_OK) { Serial.println("ESP-NOW: falha; tentando em 5s"); delay(5000); }
+  if (esp_now_register_recv_cb(onReceive) != ESP_OK) halt("ESP-NOW: callback indisponível");
+  sntp_set_time_sync_notification_cb(onTimeSync);
+  configTime(0, 0, ARGOS_NTP_SERVER);
 #if !ARGOS_LOCAL_PLAINTEXT
-  if(!strlen(ARGOS_MQTT_CA)) halt("Configure CA do broker; TLS é obrigatório");
+  if (!strlen(ARGOS_MQTT_CA)) halt("TLS: configure a CA PEM do broker");
   network.setCACert(ARGOS_MQTT_CA); network.setHandshakeTimeout(5);
 #endif
-  mqtt.setId(String("argos-rx-")+ARGOS_RECEIVER_UUID);
-  mqtt.setUsernamePassword(ARGOS_MQTT_USER,ARGOS_MQTT_PASS);
-  mqtt.setConnectionTimeout(2000); mqtt.setKeepAliveInterval(15000);
-#if ARGOS_OLED
-  Wire.begin(ARGOS_OLED_SDA,ARGOS_OLED_SCL); oledReady=oled.begin(SSD1306_SWITCHCAPVCC,0x3c);
-#endif
+  network.setConnectionTimeout(ARGOS_CONNECT_TIMEOUT_MS);
+  mqtt.setId(String("argos-rx-") + rx);
+  mqtt.setUsernamePassword(ARGOS_MQTT_USER, ARGOS_MQTT_PASS);
+  mqtt.setConnectionTimeout(ARGOS_CONNECT_TIMEOUT_MS); mqtt.setKeepAliveInterval(15000);
+  Serial.printf("RX %s MAC=%s canal=%d fila=%lu\n%s\n", ARGOS_DEVICE_CODE,
+    WiFi.macAddress().c_str(), ARGOS_WIFI_CHANNEL, (unsigned long)storage.pending, topic.c_str());
 }
 void loop() {
-  persist();
-  uint32_t now=millis();
-  if(WiFi.status()!=WL_CONNECTED && (int32_t)(now-nextWiFi)>=0) {
-    WiFi.disconnect(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL,WIFI_SECOND_CHAN_NONE);
-    WiFi.begin(ARGOS_WIFI_SSID,ARGOS_WIFI_PASS,ARGOS_WIFI_CHANNEL);
-    nextWiFi=now+30000+esp_random()%2000;
+  persistReadings();
+  uint32_t now = millis();
+  // Invalida definitivamente até o próximo NTP, inclusive antes do wrap de millis.
+  if (clockSynced.load() && uint32_t(now - syncMillis.load()) >= 86400000UL) clockSynced.store(false);
+  bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected && WiFi.channel() != ARGOS_WIFI_CHANNEL) {
+    Serial.printf("RADIO: AP no canal %d, esperado %d; fixe o canal do roteador\n", WiFi.channel(), ARGOS_WIFI_CHANNEL);
+    mqtt.stop(); WiFi.disconnect();
+    esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    nextWiFi = now + 30000; connected = false;
   }
-  uint8_t reason=wifiReason.exchange(0);
-  if(reason && reason!=lastReason) {
-    Serial.printf("[WiFi] desconectado (%u): %s\n",reason,wifiReasonText(reason)); lastReason=reason;
+  if (!connected && wifiWasConnected) {
+    ++wifiDisconnects;
+    mqtt.stop(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    Serial.println("WiFi: desconectado; fila em flash permanece");
   }
-  if(WiFi.status()==WL_CONNECTED) {
-    if(WiFi.channel()!=ARGOS_WIFI_CHANNEL) {
-      // Sem halt: continua captando no canal das coleiras e guardando na flash.
-      Serial.printf("[WiFi] ponto de acesso no canal %d; coleiras no canal %d. Fixe o roteador/hotspot no canal %d (2,4 GHz) ou recompile coleiras e receptores.\n",
-        WiFi.channel(),ARGOS_WIFI_CHANNEL,ARGOS_WIFI_CHANNEL);
-      WiFi.disconnect(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL,WIFI_SECOND_CHAN_NONE);
-      wasConnected=false; nextWiFi=now+30000; delay(2); return;
-    }
-    if(!wasConnected) {
-      wasConnected=true; lastReason=0;
-      Serial.printf("[WiFi] conectado a %s | IP %s | gateway %s | canal %d | RSSI %d dBm\n",
-        WiFi.SSID().c_str(),WiFi.localIP().toString().c_str(),WiFi.gatewayIP().toString().c_str(),
-        WiFi.channel(),WiFi.RSSI());
-      configureClock();
-      mqttHost=resolveMqttHost();
-    }
-    if(mqttWasConnected && !mqtt.connected()) {Serial.println("[MQTT] conexao perdida"); mqttWasConnected=false;}
-    if(!mqtt.connected() && (int32_t)(now-nextMqtt)>=0) {
-      // TLS exige hora correta para validar certificado. ESP-NOW continua recebendo.
-      if(ARGOS_LOCAL_PLAINTEXT || clockValid()) {
-        if(mqtt.connect(mqttHost.c_str(),ARGOS_MQTT_PORT)) {
-          mqttBackoff=1000; lastMqttError=0; mqttWasConnected=true;
-          Serial.printf("[MQTT] conectado a %s:%d; topico %s\n",mqttHost.c_str(),ARGOS_MQTT_PORT,topic.c_str());
+  if (connected && !wifiWasConnected) {
+    Serial.printf("WiFi: IP=%s canal=%d estado=%d RSSI=%d gateway=%s mascara=%s quedas=%lu\n",
+      WiFi.localIP().toString().c_str(), WiFi.channel(), WiFi.status(), WiFi.RSSI(),
+      WiFi.gatewayIP().toString().c_str(), WiFi.subnetMask().toString().c_str(), (unsigned long)wifiDisconnects);
+  }
+  wifiWasConnected = connected;
+  if (!connected && int32_t(now - nextWiFi) >= 0) {
+    WiFi.disconnect(); esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    WiFi.begin(ARGOS_WIFI_SSID, ARGOS_WIFI_PASS, ARGOS_WIFI_CHANNEL);
+    nextWiFi = now + 30000 + esp_random() % 1000;
+    Serial.println("WiFi: tentativa de conexão em 2,4 GHz");
+  }
+  if (connected) {
+    if (!mqtt.connected() && int32_t(now - nextMqtt) >= 0) {
+      if (ARGOS_LOCAL_PLAINTEXT || reliableClock()) {
+#if ARGOS_NETWORK_DIAGNOSTICS
+        Serial.printf("MQTT: tentativa broker=%s:%u modo=%s IP_local=%s WiFi=%d canal=%d RSSI=%d flash=%lu RAM=%u\n",
+          ARGOS_MQTT_HOST, unsigned(ARGOS_MQTT_PORT), ARGOS_LOCAL_PLAINTEXT ? "TCP_PURO" : "TLS",
+          WiFi.localIP().toString().c_str(), WiFi.status(), WiFi.channel(), WiFi.RSSI(),
+          (unsigned long)storage.pending, unsigned(uxQueueMessagesWaiting(readings)));
+#endif
+        if (mqtt.connect(ARGOS_MQTT_HOST, ARGOS_MQTT_PORT)) {
+          backoff = 1000; Serial.println("MQTT: autenticado");
         } else {
-          lastMqttError=mqtt.connectError();
-          Serial.printf("[MQTT] falha em %s:%d (%d): %s\n",mqttHost.c_str(),ARGOS_MQTT_PORT,lastMqttError,mqttErrorText(lastMqttError));
-          mqttBackoff=min(mqttBackoff*2,60000UL);
+          Serial.printf("MQTT: connectError=%d WiFi=%d (-2 transporte antes do MQTT; -1 espera CONNACK; 4/5 autenticacao/autorizacao de conexao)\n",
+            mqtt.connectError(), WiFi.status());
+          backoff = backoff < 30000 ? backoff * 2 : 60000;
         }
-      } else Serial.println("[MQTT] TLS aguardando a hora do NTP");
-      nextMqtt=millis()+mqttBackoff+esp_random()%1000;
+      } else Serial.println("TLS: aguardando sincronização NTP");
+      nextMqtt = millis() + backoff + esp_random() % 1000;
     }
     mqtt.poll(); publishOne();
-  } else wasConnected=false;
-  if(!clockWasValid && clockValid()) {
-    clockWasValid=true; char iso[32]; isoUtc(nowEpochMs(),iso,sizeof(iso));
-    Serial.printf("[Hora] sincronizada: %s\n",iso);
   }
-  if(now-lastPanel>5000) {
-    lastPanel=now;
-    Serial.printf("[Status] WiFi:%s MQTT:%s Hora:%s Fila:%lu Perdidas:%lu HoraRecuperada:%lu SemHora:%lu\n",
-      WiFi.status()==WL_CONNECTED?"OK":"--",mqtt.connected()?"OK":"--",clockValid()?"OK":"aguardando NTP",
-      (unsigned long)pending,(unsigned long)lost.load(),(unsigned long)recoveredTimes,(unsigned long)nullTimes);
-#if ARGOS_OLED
-    if(oledReady) {oled.clearDisplay();oled.setTextColor(SSD1306_WHITE);oled.setTextSize(1);oled.setCursor(0,0);
-      oled.printf("ARGOS\nWiFi %s\nMQTT %s\nHora %s\nFila %lu\nPerdidas %lu",WiFi.status()==WL_CONNECTED?"OK":"--",
-        mqtt.connected()?"OK":"--",clockValid()?"OK":"--",(unsigned long)pending,(unsigned long)lost.load());oled.display();}
-#endif
+  if (now - lastReport >= 5000) {
+    lastReport = now;
+    Serial.printf("WiFi=%d MQTT=%d NTP=%d flash=%lu RAM=%u publicadas=%lu perdidas=%lu invalidas=%lu duplicadas=%lu flash_descartadas=%lu\n",
+      WiFi.status(), mqtt.connected(), reliableClock(), (unsigned long)storage.pending,
+      unsigned(uxQueueMessagesWaiting(readings)), (unsigned long)published,
+      (unsigned long)lost.load(), (unsigned long)(rejected + malformed.load()),
+      (unsigned long)duplicates, (unsigned long)storage.discarded);
   }
   delay(2);
 }
