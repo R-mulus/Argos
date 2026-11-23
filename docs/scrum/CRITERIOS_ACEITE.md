@@ -1,5 +1,11 @@
 # Critérios de aceite e Definition of Done
 
+Revisão 22/11/2026: S3–S7 atendem ao aceite técnico isolado descrito na
+[entrega](ENTREGA_ML_SQL.md). Não encerra DoD integral de staging/produção/integração visual.
+Novos gates: revisão das duas migrations, RLS via JWT/PostgREST, contratos aditivos, ensaio de
+NTP físico, avisos na central e garantia operacional de um ingestor/processador por propriedade.
+Checklist abaixo preservado como registro da auditoria inicial.
+
 Cada sprint exige código revisável, testes aprovados, comandos documentados, contratos válidos e riscos explícitos. Teste de fixture não equivale a validação científica ou operacional.
 
 - [x] S0: inventário e baseline executados.

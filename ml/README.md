@@ -1,5 +1,14 @@
 # Argos — localização RSSI e GRU em CPU
 
+**Atualização 22/11/2026:** a integração oficial de KPIs agora é a
+[RPC PostgreSQL](docs/CONTRATO_SQL.md), sem Python por requisição. As duas migrations propostas
+devem ser revistas e aplicadas em staging antes de habilitar escrita nesta versão do ML.
+Posições/previsões novas registram origem, referencial e hash; histórico sem esses campos
+não pode entrar na inferência operacional ou no cálculo de deslocamento. Não há backfill automático.
+Rótulos reais de treino exigem revisão registrada. Testes usam fixtures, sem aprovar modelos reais.
+As seções antigas de KPI Python permanecem para diagnóstico local, não para a API da aplicação.
+Veja a [entrega por sprint](../docs/scrum/ENTREGA_ML_SQL.md) e os limites de aceite.
+
 Subsistema independente da ingestão MQTT. Não altera ESP32, EMQX ou worker Node.
 Trabalha em `backend-iot`; contratos de `origin/dev` foram consultados, não modificados.
 Veja [auditoria](docs/AUDITORIA.md) e [integração](docs/INTEGRACAO.md).

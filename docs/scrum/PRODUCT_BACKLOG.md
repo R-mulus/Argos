@@ -1,5 +1,10 @@
 # Product backlog — consolidação ML
 
+Atualização 22/11/2026: S3–S6 têm evidência técnica isolada; S7 entregue como migrations e RPC
+testadas, aguardando revisão/implantação autorizada. IoT ganhou avisos duráveis e recuperação
+NTP conservadora. S8 pertence ao integrador; S9/S10 ainda dependem de staging e aceite operacional.
+Ver [entrega atual](ENTREGA_ML_SQL.md); a tabela abaixo preserva o estado inicial da auditoria.
+
 Prioridade e dependências: S0 → S1 → S2 → S3 → S4 → S5; S6/S7 reutilizam S3; S8 integra S5/S7; S9/S10 encerram a entrega técnica.
 
 | Sprint | História e tarefa técnica | Estado inicial |

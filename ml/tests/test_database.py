@@ -34,7 +34,8 @@ def test_job_compare_and_set():
     assert session.request.call_args.kwargs['params']['atualizado_em']=='eq.before'
 
 
-def test_worker_idempotent_and_dry_run(beacon):
+def test_worker_idempotent_and_dry_run(beacon,monkeypatch):
+    monkeypatch.setattr('argos_ml.worker.operational_reference',lambda *a:dict(version='fixture',calibration_sha256='a'*64,validated=True))
     rows,coords,links=beacon
     saved={};acks=[]
     class Fake:
@@ -49,7 +50,8 @@ def test_worker_idempotent_and_dry_run(beacon):
     assert len(saved)==1 and len(acks)==2
 
 
-def test_write_failure_does_not_ack(beacon):
+def test_write_failure_does_not_ack(beacon,monkeypatch):
+    monkeypatch.setattr('argos_ml.worker.operational_reference',lambda *a:dict(version='fixture',calibration_sha256='a'*64,validated=True))
     db=Mock(property_id=P)
     db.rows.side_effect=list(beacon)
     db.upsert.side_effect=DatabaseError('offline')

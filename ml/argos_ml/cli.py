@@ -66,6 +66,8 @@ def main():
         from .inference import Predictor
         model=Predictor(args.model)
         dataset=json.loads(Path(args.dataset).read_text(encoding='utf-8'))
+        from .datasets import verify_dataset
+        verify_dataset(dataset)
         rows=dataset['localizacoes']
         identities={(r['propriedade_id'],r['animal_id'],r['transmissor_id']) for r in rows}
         if len(identities)!=1: raise ValueError('Selecione histórico de um animal/transmissor')

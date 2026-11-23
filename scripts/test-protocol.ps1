@@ -17,4 +17,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Compilação do teste de fila falhou' }
     & ./.build/queue_test.exe
     if ($LASTEXITCODE -ne 0) { throw 'Teste de fila falhou' }
+    & $Zig c++ -std=c++17 firmware/tests/time_recovery.cpp -o .build/time_recovery.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Compilação de recuperação de horário falhou' }
+    & ./.build/time_recovery.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Teste de recuperação de horário falhou' }
+    'OK: recuperação NTP limitada ao mesmo boot e janela de cinco minutos'
 } finally { Pop-Location }

@@ -63,6 +63,9 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
         return state
     if not write:
         return 'localizavel_sem_gravar'
+    reference = operational_reference(coordinates, db.property_id)
+    position.update(referencial_versao=reference['version'],
+                    calibracao_sha256=reference['calibration_sha256'], origem='real')
     db.upsert('argos_localizacoes',position,'propriedade_id,transmissor_id,evento_id')
     logging.info('localizacao_qualidade: %s',json.dumps({'rms_m':position['erro_residual_m'],
         'receptores':position['receptores_utilizados']}))
@@ -78,7 +81,7 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
                     animal_id='eq.'+position['animal_id'],transmissor_id='eq.'+tx,
                     **{'and':f'(observado_em.gte.{lower},observado_em.lte.{position["observado_em"]})',
                        'order':'observado_em,id'})
-                prediction = predictor.predict(history,db.property_id,operational_reference(coordinates,db.property_id))
+                prediction = predictor.predict(history,db.property_id,reference)
                 if prediction and outbox:
                     outbox.add(prediction)
             except Exception:

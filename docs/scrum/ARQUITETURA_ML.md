@@ -1,5 +1,12 @@
 # Arquitetura ML
 
+Atualização 22/11/2026: banco é a fronteira obrigatória. Após persistência, KPIs são calculados
+por `public.argos_ml_analise` SECURITY INVOKER e consumidos com JWT do usuário. API não executa
+Python; frontend não calcula KPIs nem depende dos workers. Funções Python de KPI ficam como
+ferramentas locais de diagnóstico/compatibilidade, sem participação no caminho da aplicação.
+Proveniência por amostra e revisão de rótulos são migrations propostas sem backfill.
+Decisão de ingestor oficial, avisos, limitações de locks e rollout: [ENTREGA_ML_SQL.md](ENTREGA_ML_SQL.md).
+
 ESP-NOW/HMAC → receptor MQTT → worker Node existente → `deteccoes` → trigger `argos_iot_jobs` → Python RSSI → `argos_localizacoes` → dataset temporal/GRU → outbox local → `argos_predicoes` → API Express autenticada → painel React existente.
 
 A localização não depende de TensorFlow. Treino é comando separado; só modelos aprovados entram no worker. Classificação depende de rótulos reais aceitos; KPIs observados não dependem de GRU. Coordenadas locais não são latitude/longitude.

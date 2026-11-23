@@ -143,3 +143,11 @@ Integração inicia EMQX próprio nas portas 11883/28083, usa banco HTTP simulad
 o projeto `argos-iot-test-<pid>` criado para o teste, incluindo seus volumes descartáveis.
 Não utiliza o Supabase remoto e não interfere no broker `argos-iot`.
 Veja [resultados e limitações](../docs/backend-iot/TESTES.md).
+# Avisos da central — atualização de integração
+
+`worker/` agora mantém avisos duráveis na mesma SQLite: rejeição e conclusão de recuperação
+por propriedade. Upsert em `alertas` usa `propriedade_id,origem_evento` e ignoreDuplicates;
+falhas deixam o aviso para retry. Não apague a fila ao atualizar. A migration existente da
+central deve estar instalada. Testes: `npm run build`, `npm test` (incluem restart e ACK perdido).
+Não execute simultaneamente `backend/src/mqtt`. Nenhuma alternativa foi desativada automaticamente.
+Contrato, limitações e rollout: `docs/scrum/ENTREGA_ML_SQL.md` na raiz.

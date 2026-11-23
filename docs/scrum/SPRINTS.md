@@ -1,5 +1,11 @@
 # Sprints e evidências
 
+## Atualização de 22/11/2026 — entrega Larápio
+
+S7 implementada em SQL e validada isoladamente; S3–S6 validadas tecnicamente com fixtures,
+sem aprovação de campo. Estado detalhado, arquivos, critérios, pendências e próximos passos em
+[ENTREGA_ML_SQL.md](ENTREGA_ML_SQL.md). Registros abaixo são históricos e não foram apagados.
+
 ## S0 — auditoria (concluída)
 
 Entrega: inventário e baseline de 45 testes aprovados, Python 3.12/TensorFlow CPU. `backend-iot` contém `ml` ainda não versionado; `origin/dev` contém aplicação Express/React. Importação seletiva dos pacotes de aplicação será commit separado, sem alterar a branch dev, firmware ou broker.

@@ -1,4 +1,5 @@
 import { listarDadosIoT, salvarCoordenadas } from './controllers/iot.controller.js';
+import { painelML } from './controllers/ml.controller.js';
 import {
   listarGeometriasZonas, listarLocalizacoesRecentes, obterReferenciaEspacial, removerGeometriaZona,
   salvarGeometriaZona, salvarReferenciaEspacial,
@@ -44,6 +45,7 @@ export function createApp(config: Config) {
   app.get('/api/monitoramento/receptores', listarComunicacaoReceptores);
 
   app.get('/api/iot/localizacoes', listarDadosIoT('argos_localizacoes'));
+  app.get('/api/iot/analise', painelML);
   app.get('/api/iot/predicoes', listarDadosIoT('argos_predicoes'));
   app.get('/api/iot/receptores/coordenadas', listarDadosIoT('argos_posicoes_receptores'));
   app.put('/api/iot/receptores/coordenadas', salvarCoordenadas);

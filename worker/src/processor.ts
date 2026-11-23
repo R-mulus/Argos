@@ -46,6 +46,13 @@ export class Processor {
           }
         } else for (const { item } of prepared) this.failed(item, error);
       }
-    } finally { this.busy = false; }
+    } finally {
+      try {
+        if (this.repository.notify) for (const notice of this.queue.notices()) {
+          try { await this.repository.notify(notice.value); this.queue.acknowledgeNotice(notice.key); }
+          catch { this.log('aviso_preservado_para_retry', { key: notice.key }); }
+        }
+      } finally { this.busy = false; }
+    }
   }
 }

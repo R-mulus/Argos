@@ -214,3 +214,11 @@ motivo de rejeição no PUBACK). Faça um teste explícito de tópico permitido 
 
 Referências técnicas: [ESP-NOW Espressif](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/espnow.html)
 e [implementação ArduinoMqttClient 0.1.8](https://github.com/arduino-libraries/ArduinoMqttClient/blob/0.1.8/src/MqttClient.cpp).
+# Recuperação NTP no mesmo boot — atualização
+
+O receptor pode recuperar o horário das últimas 64 leituras inéditas usando a captura monotônica
+em RAM e NTP sincronizado no mesmo boot, com janela máxima de cinco minutos. O formato da flash
+não muda. Registros antigos, já existentes na flash, expulsos da RAM ou de outro boot continuam
+com `detectado_em=null`. Não se usa o instante da publicação como instante de detecção.
+Teste puro: compilar e executar `firmware/tests/time_recovery.cpp`. ESP32/C3 e TLS compilados;
+ensaio físico de NTP tardio, desconexão e reinício ainda é necessário. Nenhum upload automático.

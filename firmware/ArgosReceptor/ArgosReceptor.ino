@@ -5,12 +5,14 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <esp_sntp.h>
+#include <esp_timer.h>
 #include <time.h>
 #include <atomic>
 #include <ArgosProtocol.h>
 #include "ArgosConfig.h"
 #include "ArgosQueue.h"
 #include "ArgosNetworkClient.h"
+#include "ArgosTimeRecovery.h"
 
 ArgosNetworkClient network;
 MqttClient mqtt(network);
@@ -23,6 +25,9 @@ uint32_t rejected = 0, duplicates = 0, published = 0;
 uint32_t nextWiFi = 0, nextMqtt = 0, lastReport = 0, backoff = 1000;
 String topic;
 String recent[64];
+int64_t recentCapturedUs[64] = {};
+int64_t recentRecovered[64] = {};
+struct ReceivedReading { StoredReading stored; int64_t capturedUs; };
 size_t recentCursor = 0;
 bool wifiWasConnected = false;
 uint32_t wifiDisconnects = 0;
@@ -40,23 +45,32 @@ bool reliableClock() {
 }
 void onReceive(const esp_now_recv_info_t* info, const uint8_t* data, int length) {
   if (!info || !info->rx_ctrl || !data || length != sizeof(argos::Beacon)) { ++malformed; return; }
-  StoredReading r = {};
+  ReceivedReading received = {};
+  StoredReading& r = received.stored;
+  received.capturedUs = esp_timer_get_time();
   memcpy(&r.beacon, data, sizeof(r.beacon));
   r.rssi = info->rx_ctrl->rssi;
   // Copia o horário observado agora; não usa o horário de publicação após reconectar.
   time_t now = time(nullptr);
   r.observed = reliableClock() && now >= 1700000000LL ? now : 0;
-  if (xQueueSend(readings, &r, 0) != pdTRUE) ++lost;
+  if (xQueueSend(readings, &received, 0) != pdTRUE) ++lost;
 }
 void persistReadings() {
-  StoredReading r;
-  for (int i = 0; i < 16 && xQueueReceive(readings, &r, 0) == pdTRUE; ++i) {
+  ReceivedReading received;
+  for (int i = 0; i < 16 && xQueueReceive(readings, &received, 0) == pdTRUE; ++i) {
+    StoredReading& r = received.stored;
     if (!argos::verify(r.beacon, ARGOS_BEACON_SECRET) || r.rssi < -127 || r.rssi > 0) { ++rejected; continue; }
     char event[80]; argos::eventId(r.beacon, event, sizeof(event));
     bool seen = false;
     for (const auto& value : recent) if (value == event) { seen = true; break; }
     if (seen) { ++duplicates; continue; }
-    if (storage.append(r)) recent[recentCursor++ % 64] = event;
+    const bool alreadyStored = LittleFS.exists(storage.path(r));
+    if (storage.append(r)) {
+      size_t slot = recentCursor++ % 64;
+      recent[slot] = event;
+      recentCapturedUs[slot] = alreadyStored ? 0 : received.capturedUs;
+      recentRecovered[slot] = 0;
+    }
     else {
       ++lost;
       // Erro de rename não pode fazer a próxima escrita destruir o temporário durável.
@@ -70,6 +84,14 @@ void publishOne() {
   if (!storage.first(r, path)) return;
   char event[80], tx[37];
   argos::eventId(r.beacon, event, sizeof(event)); argos::formatUuid(r.beacon.transmitter, tx);
+  if (!r.observed) {
+    for (size_t i = 0; i < 64; ++i) if (recent[i] == event) {
+      if (!recentRecovered[i]) recentRecovered[i] = recoverObservedTime(
+        recentCapturedUs[i], esp_timer_get_time(), time(nullptr), reliableClock(), true);
+      r.observed = recentRecovered[i];
+      break;
+    }
+  }
   JsonDocument doc;
   doc["versao"] = 1; doc["evento_id"] = event; doc["transmissor_id"] = tx;
   doc["rssi_dbm"] = int(r.rssi);
@@ -107,7 +129,7 @@ void setup() {
   char rx[37], farm[37]; argos::formatUuid(receiver, rx); argos::formatUuid(property, farm);
   topic = String("argos/v1/propriedades/") + farm + "/receptores/" + rx + "/deteccoes";
   if (!storage.begin(topic)) halt("FLASH: fila indisponível; corrija antes de receber dados");
-  readings = xQueueCreate(ARGOS_RAM_READINGS, sizeof(StoredReading));
+  readings = xQueueCreate(ARGOS_RAM_READINGS, sizeof(ReceivedReading));
   if (!readings) halt("RAM: não foi possível criar fila");
   WiFi.mode(WIFI_STA); WiFi.setSleep(false); WiFi.setAutoReconnect(false);
   if (esp_wifi_set_channel(ARGOS_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE) != ESP_OK)

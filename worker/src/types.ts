@@ -23,6 +23,11 @@ export interface DetectionRow {
 export interface Repository {
   prepare(event: Detection): Promise<DetectionRow>;
   insert(rows: DetectionRow[]): Promise<void>;
+  notify?(notice: Notice): Promise<void>;
+}
+export interface Notice {
+  propriedade_id: string; origem_evento: string; tipo: 'sincronizacao_concluida' | 'deteccao_rejeitada';
+  titulo: string; descricao: string; prioridade: 'baixa' | 'media'; dispositivo_id?: string;
 }
 export class InvalidDetection extends Error {}
 export class PermanentError extends Error {}
