@@ -186,3 +186,29 @@ test('RSSI → localização Python → persistência SQL → consulta sem ML/Io
   assert.deepEqual(v.qualidade.origens,['synthetic']);
  } finally {await db.close();}
 });
+
+test('previsão de GRU acadêmica persiste sem comportamento e modelos respeitam RLS',
+ {skip:!process.env.ARGOS_TEST_DEMO_EXPORT},async()=>{
+ const fixture=JSON.parse(await readFile(process.env.ARGOS_TEST_DEMO_EXPORT,'utf8'));
+ const db=await database();
+ try {
+  const p=fixture.prediction,m=fixture.model;
+  await db.query('insert into auth.users values($1)',[uid(3)]);
+  await db.query("insert into propriedades(id,usuario_id,nome) values($1,$2,'fixture-gru')",[p.propriedade_id,uid(3)]);
+  await db.query("insert into animais(id,propriedade_id,identificacao) values($1,$2,'fixture')",[p.animal_id,p.propriedade_id]);
+  for(const [table,row] of [['argos_predicoes',p],['argos_modelos_ml',m]]) {
+   const sql=`insert into ${table}(${Object.keys(row).join(',')}) values(${Object.keys(row).map((_,i)=>'$'+(i+1)).join(',')})`;
+   await db.query(sql,Object.values(row));
+  }
+  await asUser(db,3);
+  const v=await rpc(db,p.animal_id,p.observado_em,p.previsto_para);
+  assert.equal(v.previsoes.quantidade,1);assert.equal(v.previsoes.origem,'experimental');
+  const result=(await db.query('select * from argos_predicoes')).rows[0];
+  assert.equal(result.comportamento,null);assert.ok(Number.isFinite(result.proximo_x_m));
+  const model=(await db.query('select * from argos_modelos_ml')).rows[0];
+  assert.equal(model.approved,false);assert.equal(model.approval_status,'demo_approved');
+  await assert.rejects(db.exec("update argos_modelos_ml set approved=true"),e=>e.code==='42501');
+  await asUser(db,1);assert.equal((await db.query('select * from argos_modelos_ml')).rows.length,0);
+  await assert.rejects(rpc(db,p.animal_id,p.observado_em,p.previsto_para),e=>e.code==='42501');
+ } finally {await db.close();}
+});

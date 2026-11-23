@@ -1,62 +1,63 @@
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
-import type { AnaliseML, ModeloML } from '@argos/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AnaliseML, ModeloML, QualidadeML, ResumoPrevisoesML } from '@argos/shared';
 import { ApiError } from '../lib/http.js';
 
-const mlDirectory = fileURLToPath(new URL('../../../ml/', import.meta.url));
-let running = 0;
+type Obj = Record<string, unknown>;
+const object = (v: unknown): v is Obj => typeof v==='object' && v!==null && !Array.isArray(v);
+const number = (v: unknown): v is number => typeof v==='number' && Number.isFinite(v);
+const nullable = (v: unknown) => v===null || number(v);
+const coverage = (v: unknown) => number(v) && v>=0 && v<=100;
+const date = (v: unknown) => typeof v==='string' && Number.isFinite(Date.parse(v));
+const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x=>typeof x==='string');
+const classes = ['parado','comendo','em_movimento','outro'];
+export type AnaliseSQL = AnaliseML & { qualidade: QualidadeML; previsoes: ResumoPrevisoesML };
 
-/** Reutiliza os cálculos Python via stdin; nenhum HTTP paralelo ou credencial administrativa. */
-export async function analyze(payload: object): Promise<AnaliseML> {
-  if (running >= 2) throw new ApiError(429, 'Análises ocupadas. Tente novamente.', 'ML_BUSY');
-  const input = JSON.stringify(payload);
-  if (Buffer.byteLength(input) > 8 * 1024 * 1024) throw new ApiError(413, 'Reduza o intervalo da análise.', 'ML_LIMIT');
-  running++;
-  try {
-    return await new Promise<AnaliseML>((accept, reject) => {
-      const python = process.env.ARGOS_ML_PYTHON || resolve(mlDirectory, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-      const child = spawn(python, ['-m', 'argos_ml.bridge'], { cwd: mlDirectory, shell: false, windowsHide: true,
-        stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
-      let output = '';
-      const timer = setTimeout(() => { child.kill(); reject(new ApiError(503, 'Análise excedeu o tempo disponível.', 'ML_TIMEOUT')); }, 15000);
-      child.on('error', () => { clearTimeout(timer); reject(new ApiError(503, 'Processador de análises indisponível.', 'ML_UNAVAILABLE')); });
-      child.stdin.on('error', () => { /* Encerramento é tratado em error/close. */ });
-      child.stdout.on('data', (chunk: Buffer) => {
-        output += chunk.toString('utf8');
-        if (Buffer.byteLength(output) > 2 * 1024 * 1024) child.kill();
-      });
-      child.on('close', code => {
-        clearTimeout(timer);
-        if (code !== 0) { reject(new ApiError(503, 'Não foi possível calcular a análise.', 'ML_UNAVAILABLE')); return; }
-        try { accept(JSON.parse(output) as AnaliseML); }
-        catch { reject(new ApiError(503, 'Resposta de análise inválida.', 'ML_UNAVAILABLE')); }
-      });
-      child.stdin.end(input);
-    });
-  } finally { running--; }
+export function validateAnalysis(value: unknown): AnaliseSQL {
+  const fail = () => { throw new ApiError(503,'Contrato da análise SQL incompatível.','ML_SQL_CONTRACT'); };
+  if (!object(value)) return fail();
+  const {resumo:r,movimentacao:m,comportamentos:c,qualidade:q,previsoes:p}=value;
+  if (!object(r)||!object(m)||!object(c)||!object(q)||!object(p)) return fail();
+  if (!['distancia_estimada_m','velocidade_media_estimada_m_s','segundos_repouso_aparente','segundos_movimento_aparente','rms_medio_m'].every(k=>nullable(r[k]))
+    || !coverage(r.cobertura_percentual)||!Number.isInteger(r.localizacoes)||Number(r.localizacoes)<0) return fail();
+  if (m.origem!=='derivado_rssi'||!['dia','semana','mes'].includes(String(m.periodo))||!Array.isArray(m.pontos)) return fail();
+  for (const point of m.pontos) {
+    if (!object(point)||!date(point.inicio)||!date(point.fim)||Date.parse(String(point.fim))<=Date.parse(String(point.inicio))
+      ||!coverage(point.cobertura_percentual)||!nullable(point.distancia_estimada_m)||!nullable(point.velocidade_media_estimada_m_s)
+      ||!['segundos_observados','segundos_repouso_aparente','segundos_movimento_aparente','segundos_indeterminados'].every(k=>number(point[k])&&Number(point[k])>=0)
+      ||!object(point.movimento_aparente)||!['parado_aparente','em_movimento_aparente','indeterminado'].every(k=>nullable((point.movimento_aparente as Obj)[k]))) return fail();
+  }
+  if(c.origem!=='observado_validado'||typeof c.disponivel!=='boolean'||!coverage(c.cobertura_percentual)||!object(c.percentuais)) return fail();
+  const percentages=c.percentuais;
+  if(!classes.every(k=>percentages[k]===null||coverage(percentages[k])))return fail();
+  if(c.disponivel ? !classes.every(k=>number(percentages[k]))||Math.abs(classes.reduce((sum,k)=>sum+Number(percentages[k]),0)-100)>0.001
+    : !classes.every(k=>percentages[k]===null))return fail();
+  if(q.versao_contrato!==1||!strings(q.referenciais)||!strings(q.origens)||!q.origens.every(s=>['real','experimental','synthetic'].includes(s))
+    ||!['segundos_sem_cobertura','segundos_indeterminados_observados','localizacoes_excluidas','observacoes_confiaveis'].every(k=>number(q[k])&&Number(q[k])>=0)
+    ||!nullable(q.velocidade_maxima_estimada_m_s)||!nullable(q.receptores_minimos))return fail();
+  if(!Number.isInteger(p.quantidade)||Number(p.quantidade)<0||typeof p.disponivel!=='boolean'||!nullable(p.horizonte_segundos)
+    ||!(p.observado_em===null||date(p.observado_em))||!(p.previsto_para===null||date(p.previsto_para))
+    ||!(p.modelo_versao===null||typeof p.modelo_versao==='string')||p.desempenho_validado!==null
+    ||!(p.origem===null||['real','experimental','synthetic'].includes(String(p.origem)))
+    ||!(p.referencial_versao===null||typeof p.referencial_versao==='string'))return fail();
+  return value as unknown as AnaliseSQL;
 }
 
-/** Só métricas públicas; não retorna scalers, hashes, caminhos ou registros de treino. */
-export async function modelMetrics(propertyId: string): Promise<ModeloML[]> {
-  return Promise.all((['position', 'behavior'] as const).map(async task => {
-    const empty: ModeloML = { task, model_version: null, approved: false, training_samples: 0,
-      model_parameters: null, tensorflow_version: null, prediction_horizon_minutes: null, inference_time_ms: null, evaluation: null };
-    const directory = process.env[task === 'position' ? 'ARGOS_MODEL_DIR' : 'ARGOS_BEHAVIOR_MODEL_DIR'];
-    if (!directory) return empty;
-    try {
-      const m = JSON.parse(await readFile(resolve(directory, 'manifest.json'), 'utf8')) as Record<string, unknown>;
-      if (m.property_id !== propertyId || m.task !== task || m.schema_version !== 2) return empty;
-      const number = (key: string) => typeof m[key] === 'number' && Number.isFinite(m[key]) ? m[key] as number : null;
-      const e = m.evaluation as Record<string, unknown> | null;
-      const evaluation = e ? Object.fromEntries(['mae_m', 'rmse_m', 'classification_accuracy']
-        .filter(key => typeof e[key] === 'number' && Number.isFinite(e[key])).map(key => [key, e[key]])) : null;
-      return { ...empty, model_version: typeof m.model_version === 'string' ? m.model_version : null,
-        approved: m.approved === true && m.source === 'real' && m.reviewed_real_data === true && m.synthetic === false,
-        training_samples: number('training_samples') ?? 0, model_parameters: number('model_parameters'),
-        tensorflow_version: typeof m.tensorflow_version === 'string' ? m.tensorflow_version : null,
-        prediction_horizon_minutes: number('prediction_horizon_minutes'), inference_time_ms: number('inference_time_ms'), evaluation };
-    } catch { return empty; }
-  }));
+export async function analyze(db: SupabaseClient, params: {animal:string;start:string;end:string;period:string}): Promise<AnaliseSQL> {
+  const {data,error}=await db.rpc('argos_ml_analise',{
+    p_animal_id:params.animal,p_inicio:params.start,p_fim:params.end,p_periodo:params.period,
+  });
+  if(error)throw new ApiError(error.code==='42501'?403:503,'Análise SQL indisponível.','ML_SQL_UNAVAILABLE');
+  return validateAnalysis(data);
+}
+
+export async function modelMetrics(db: SupabaseClient, propertyId: string): Promise<{ models: ModeloML[]; unavailable: boolean }> {
+  const {data,error}=await db.from('argos_modelos_ml')
+    .select('propriedade_id,task,model_version,approved,approval_status,origem,referencial_versao,training_samples,model_parameters,tensorflow_version,prediction_horizon_minutes,inference_time_ms,evaluation,atualizado_em')
+    .eq('propriedade_id',propertyId).order('atualizado_em',{ascending:false}).limit(100);
+  if(error) {
+    if(['42P01','PGRST205'].includes(error.code))return {models:[],unavailable:true};
+    throw new ApiError(503,'Metadados de modelos indisponíveis.','ML_DATABASE_UNAVAILABLE');
+  }
+  if(data?.some(row=>row.propriedade_id!==propertyId))throw new ApiError(403,'Escopo de modelo inválido.','FORBIDDEN');
+  return {models:(data??[]).map(({propriedade_id:_,...row})=>row as ModeloML),unavailable:false};
 }

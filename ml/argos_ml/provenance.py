@@ -23,13 +23,30 @@ def calibration_hash(coordinates, property_id: str) -> str:
 def operational_reference(coordinates, property_id: str) -> dict:
     expected = os.getenv('ARGOS_CALIBRATION_SHA256','')
     version = os.getenv('ARGOS_REFERENCE_VERSION','')
+    mode = execution_mode()
+    if mode == 'academic_demo':
+        if (os.getenv('ARGOS_DATA_ORIGIN') != 'experimental' or not version
+                or expected != calibration_hash(coordinates,property_id)
+                or sum(c['propriedade_id']==property_id for c in coordinates)<3):
+            raise CalibrationError('referencial_experimental_incompativel')
+        return dict(version=version,calibration_sha256=expected,property_id=property_id,
+                    validated=False,origin='experimental',execution_mode=mode)
     if (os.getenv('ARGOS_DATA_ORIGIN','experimental')!='real'
             or os.getenv('ARGOS_CALIBRATION_VALIDATED','0')!='1' or not version
             or expected != calibration_hash(coordinates,property_id)):
         raise CalibrationError('calibracao_operacional_nao_validada')
     if sum(c['propriedade_id']==property_id for c in coordinates)<3:
         raise CalibrationError('calibracao_operacional_insuficiente')
-    return dict(version=version,calibration_sha256=expected,property_id=property_id,validated=True)
+    return dict(version=version,calibration_sha256=expected,property_id=property_id,validated=True,origin='real',execution_mode=mode)
+
+
+def execution_mode():
+    mode = os.getenv('ARGOS_EXECUTION_MODE','production')
+    if mode not in ('production','academic_demo'):
+        raise CalibrationError('modo_execucao_invalido')
+    if mode == 'academic_demo' and os.getenv('ARGOS_DEMO_AUTHORIZED','0') != '1':
+        raise CalibrationError('demonstracao_nao_autorizada')
+    return mode
 
 
 @contextmanager

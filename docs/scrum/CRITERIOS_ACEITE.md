@@ -1,5 +1,17 @@
 # Critérios de aceite e Definition of Done
 
+## Aceite MVP acadêmico — 23/11/2026
+
+- [x] Modo acadêmico explícito preserva idempotência, escopo, horário, algoritmo e origem experimental.
+- [x] Aprovação demo separada de produção; hash, avaliação, scalers, carga e inferência verificados.
+- [x] Previsão experimental persiste sem comportamento em PostgreSQL isolado.
+- [x] API autentica e consome SQL/histórico sem executar ML ou ler artefatos locais.
+- [x] RLS, erros controlados, contratos, coleta monitorável e comandos de operação documentados.
+- [ ] Migrations autorizadas/aplicadas ao ambiente da demonstração.
+- [ ] Coleta física de 24 h e treino com essas posições, sem confundir com fixtures.
+- [ ] Versão treinada com a coleta aprovada e ativada para demonstração.
+- [ ] NTP, rádio, MQTT e consumo pelo frontend validados fisicamente/em staging.
+
 Revisão 22/11/2026: S3–S7 atendem ao aceite técnico isolado descrito na
 [entrega](ENTREGA_ML_SQL.md). Não encerra DoD integral de staging/produção/integração visual.
 Novos gates: revisão das duas migrations, RLS via JWT/PostgREST, contratos aditivos, ensaio de

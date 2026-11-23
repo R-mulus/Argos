@@ -2,7 +2,9 @@
 
 Responsável: Larápio. Revisão técnica: 22/11/2026 (America/Sao_Paulo).
 Branch `backend-iot`, worktree separado `argos-ml-sprint7`. O checkout da integração foi preservado.
-Nenhuma API Express, componente React ou definição em `shared/ml.ts` foi alterada nesta entrega.
+Na entrega inicial de 22/11, APIs e tipos não foram alterados. A continuação de 23/11
+implementa o consumo Express e extensões opcionais em `shared/ml.ts`, sem alterar React.
+Consulte `docs/integracao/CONTRATO_BACKEND_FRONTEND.md` para o contrato atualizado.
 
 ## RPC e compatibilidade
 
@@ -74,7 +76,9 @@ estimador: soma dos segmentos aceitos; não são dois indicadores independentes.
   Probabilidades de previsões não são convertidas em percentuais de tempo.
 - Previsões são filtradas pelo instante de observação, com horizonte positivo; aceitam
   classificação/confiança/probabilidades nulas. Não são tratadas como rótulos.
-  `desempenho_validado=null`: ainda não há registro persistido de métricas revisadas de modelos.
+  `desempenho_validado=null`: a RPC não atribui precisão física a métricas de treinamento.
+  Métricas e aprovação dos modelos são consultadas separadamente em `argos_modelos_ml`
+  e retornadas em `PainelML.modelos`; aprovação de demonstração não é aprovação de produção.
   O backend não deve depender de manifestos no disco do worker para servir o histórico.
 
 ## Migrations propostas e implantação

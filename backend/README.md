@@ -1,5 +1,11 @@
 # API Argos — cadastros e vínculos IoT
 
+Atualização 23/11/2026: `/api/iot/analise` consome exclusivamente a RPC PostgreSQL e histórico
+persistido. Sem subprocessos Python ou manifestos locais. Metadados em `argos_modelos_ml`.
+Contrato completo: [backend/frontend](../docs/integracao/CONTRATO_BACKEND_FRONTEND.md).
+Operação: [MVP acadêmico](../docs/operacao/EXECUTAR_MVP.md). Ingestor oficial é `worker/`;
+os comandos legados MQTT abaixo ficam como referência, não devem rodar simultaneamente.
+
 Backend Express 5 + TypeScript + Supabase Auth/PostgreSQL. A sessão é criada pelo frontend no Supabase Auth; **o backend valida cada token Bearer** via `auth.getUser(token)` e executa consultas com um cliente Supabase configurado com o JWT recebido, mantendo as políticas RLS.
 
 ## Executar
