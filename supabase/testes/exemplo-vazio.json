@@ -1,0 +1,8 @@
+{
+  "resumo": {"distancia_estimada_m":null,"velocidade_media_estimada_m_s":null,"segundos_repouso_aparente":null,"segundos_movimento_aparente":null,"cobertura_percentual":0,"localizacoes":0,"rms_medio_m":null},
+  "movimentacao": {"origem":"derivado_rssi","periodo":"dia","pontos":[{"inicio":"2026-11-01T00:00:00+00:00","fim":"2026-11-01T00:10:00+00:00","distancia_estimada_m":null,"velocidade_media_estimada_m_s":null,"cobertura_percentual":0,"segundos_observados":0,"segundos_repouso_aparente":0,"segundos_movimento_aparente":0,"segundos_indeterminados":0,"movimento_aparente":{"parado_aparente":null,"em_movimento_aparente":null,"indeterminado":null}}]},
+  "comportamentos": {"origem":"observado_validado","disponivel":false,"cobertura_percentual":0,"percentuais":{"parado":null,"comendo":null,"em_movimento":null,"outro":null}},
+  "qualidade": {"versao_contrato":1,"segundos_sem_cobertura":600,"segundos_indeterminados_observados":0,"velocidade_maxima_estimada_m_s":null,"localizacoes_excluidas":0,"receptores_minimos":null,"referenciais":[],"origens":[],"observacoes_confiaveis":0},
+  "comportamentos_temporais": [],
+  "previsoes": {"quantidade":0,"disponivel":false,"observado_em":null,"previsto_para":null,"horizonte_segundos":null,"modelo_versao":null,"origem":null,"referencial_versao":null,"desempenho_validado":null}
+}

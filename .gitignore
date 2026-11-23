@@ -20,4 +20,5 @@ ml/data/
 ml/model/artifacts/
 ml/test-artifacts/
 .pytest_cache/
+supabase/.temp/
 ml/.pytest-tmp/
