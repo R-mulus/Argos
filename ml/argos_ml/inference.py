@@ -8,6 +8,7 @@ import numpy as np
 from .config import SeriesConfig, LABELS
 from .preprocessing import FEATURES, features
 from .localization import timestamp
+from .provenance import execution_mode
 
 
 class Predictor:
@@ -19,14 +20,18 @@ class Predictor:
         try:
             m = json.loads((path/'manifest.json').read_text())
             self.meta = m
-            if not m.get('approved') or m.get('synthetic', True) or not m.get('reviewed_real_data'):
+            demo = execution_mode() == 'academic_demo'
+            accepted = (m.get('approval_status')=='demo_approved' and m.get('source')=='experimental'
+                        and m.get('demo_eligible') is True) if demo else (
+                        m.get('approved') and m.get('reviewed_real_data') and m.get('source')=='real')
+            if not accepted or m.get('synthetic', True):
                 self.status = 'nao_aprovado'
                 return
             if m['schema_version'] != 2 or m['features'] != FEATURES or m['labels'] != LABELS:
                 raise ValueError('contrato_modelo_incompativel')
-            if m.get('source')!='real' or not m.get('reference',{}).get('validated'):
+            if not demo and not m.get('reference',{}).get('validated'):
                 raise ValueError('referencial_modelo_nao_validado')
-            if m['task'] not in ('position', 'behavior') or not m['improves_baseline']:
+            if m['task'] not in ('position', 'behavior') or (not demo and not m['improves_baseline']):
                 raise ValueError('modelo_nao_validado')
             self.cfg = SeriesConfig(**m['config'])
             if hashlib.sha256((path/'model.keras').read_bytes()).hexdigest() != m['model_sha256']:
@@ -51,7 +56,7 @@ class Predictor:
             return None
         if any(r.get('referencial_versao') != reference['version']
                or r.get('calibracao_sha256') != reference['calibration_sha256']
-               or r.get('origem') != 'real' for r in rows):
+               or r.get('origem') != self.meta['source'] for r in rows):
             return None
         identities = {(r.get('propriedade_id'),r.get('animal_id'),r.get('transmissor_id')) for r in rows}
         if len(identities) != 1 or any(p != property_id or a is None or t is None for p,a,t in identities):
@@ -81,10 +86,11 @@ class Predictor:
             atual_x_m=float(row.x_m), atual_y_m=float(row.y_m),
             modelo_versao=self.meta['model_version'], comportamento=None, confianca=None,
             probabilidades=None, proximo_x_m=None, proximo_y_m=None,
-            referencial_versao=reference['version'], calibracao_sha256=reference['calibration_sha256'], origem='real')
+            referencial_versao=reference['version'], calibracao_sha256=reference['calibration_sha256'], origem=self.meta['source'])
         if self.meta['task'] == 'position':
             value = value * self.meta['target_scale'] + self.meta['target_mean']
-            if not np.isfinite(value).all():
+            if (not np.isfinite(value).all() or (np.abs(value)>1_000_000).any()
+                    or np.linalg.norm(value-np.array([row.x_m,row.y_m]))>self.cfg.max_speed_m_s*self.cfg.horizon_s):
                 return None
             result.update(proximo_x_m=float(value[0]), proximo_y_m=float(value[1]))
         else:

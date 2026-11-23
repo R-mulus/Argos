@@ -86,6 +86,10 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
     model.save(directory / 'model.keras')
     np.savez_compressed(directory / 'heldout.npz', x=xs[2], y=ys[2], baseline=splits[2][2])
     manifest = dict(schema_version=2, model_version=directory.name, task=task, approved=False,
+        approval_status='evaluated_experimental' if dataset['source']=='experimental' else 'evaluated_unapproved',
+        demo_eligible=(dataset['source']=='experimental' and bool(rows) and all(
+            r.get('origem')=='experimental' and r.get('referencial_versao')==dataset.get('reference',{}).get('version')
+            and r.get('calibracao_sha256')==dataset.get('reference',{}).get('calibration_sha256') for r in rows)),
         synthetic=synthetic, reviewed_real_data=reviewed, property_id=next(iter(properties)), config=asdict(cfg), features=FEATURES, labels=LABELS,
         source=dataset['source'],reference=dataset.get('reference',dict(property_id=next(iter(properties)),
             version='synthetic-test-only',calibration_sha256=digest('synthetic-test-only'),validated=False)),
@@ -101,6 +105,8 @@ def train(dataset, directory, cfg=SeriesConfig(), task='position', epochs=50):
         dataset_sha256=hashlib.sha256(json.dumps(dataset, sort_keys=True).encode()).hexdigest(),
         model_sha256=hashlib.sha256((directory/'model.keras').read_bytes()).hexdigest())
     manifest['heldout_sha256']=hashlib.sha256((directory/'heldout.npz').read_bytes()).hexdigest()
+    save_json(directory/'inference_sample.json',rows[-(cfg.steps+3):])
+    manifest['inference_sample_sha256']=hashlib.sha256((directory/'inference_sample.json').read_bytes()).hexdigest()
     save_json(directory / 'manifest.json', manifest)
     return manifest
 
@@ -118,7 +124,7 @@ def approve(directory, reviewer):
         raise ValueError('Modelo alterado após avaliação')
     if hashlib.sha256((Path(directory)/'heldout.npz').read_bytes()).hexdigest()!=m['heldout_sha256']:
         raise ValueError('Teste reservado alterado após avaliação')
-    m.update(approved=True, approved_by=reviewer, approved_at=datetime.now(timezone.utc).isoformat())
+    m.update(approved=True, approval_status='production_approved', approved_by=reviewer, approved_at=datetime.now(timezone.utc).isoformat())
     save_json(path, m)
 
 
@@ -139,3 +145,52 @@ def evaluate_saved(directory):
             confusion_matrix=confusion_matrix(test['y'],prediction.argmax(axis=1),labels=list(range(4))).tolist(),
             per_class=classification_report(test['y'],prediction.argmax(axis=1),labels=list(range(4)),
                 target_names=LABELS,output_dict=True,zero_division=0))
+
+
+def approve_demo(directory, reviewer):
+    """Aprovação acadêmica explícita; jamais altera approved/validated para produção."""
+    from .provenance import execution_mode
+    import os
+    if execution_mode()!='academic_demo':
+        raise ValueError('aprovacao_demo_exige_modo_academico')
+    path=Path(directory)
+    m=json.loads((path/'manifest.json').read_text())
+    reference=m.get('reference',{})
+    if any(reference.get(key)!=os.getenv(env) for key,env in (
+        ('property_id','ARGOS_PROPERTY_ID'),('version','ARGOS_REFERENCE_VERSION'),
+        ('calibration_sha256','ARGOS_CALIBRATION_SHA256'))):
+        raise ValueError('referencial_demo_divergente_do_ambiente')
+    if (m.get('source')!='experimental' or m.get('synthetic') is not False
+            or not m.get('demo_eligible') or not reviewer.strip()
+            or min(m[k] for k in ('training_samples','validation_samples','test_samples'))<2):
+        raise ValueError('modelo_demo_inelegivel')
+    # Hash, modelo carregável, scalers, métricas e saída finita são reavaliados.
+    metrics=evaluate_saved(path)
+    if not np.isfinite([metrics.get('rmse_m',metrics.get('classification_accuracy'))]).all():
+        raise ValueError('avaliacao_demo_invalida')
+    if metrics != m['evaluation']:
+        # Float de inferência pode variar marginalmente entre CPUs; comparar números principais.
+        for key in ('mae_m','rmse_m','classification_accuracy'):
+            if key in metrics and not np.isclose(metrics[key],m['evaluation'][key],rtol=1e-5,atol=1e-6):
+                raise ValueError('metricas_divergentes')
+    original=dict(m)
+    sample_path=path/'inference_sample.json'
+    if hashlib.sha256(sample_path.read_bytes()).hexdigest()!=m.get('inference_sample_sha256'):
+        raise ValueError('amostra_inferencia_alterada')
+    m.update(approved=False,approval_status='demo_approved',demo_approved_by=reviewer,
+             demo_approved_at=datetime.now(timezone.utc).isoformat())
+    save_json(path/'manifest.json',m)
+    try:
+        from .inference import Predictor
+        predictor=Predictor(path)
+        if predictor.model is None: raise ValueError('modelo_demo_nao_carregavel')
+        if predictor.predict(json.loads(sample_path.read_text()),m['property_id'],reference) is None:
+            raise ValueError('sequencia_demo_nao_inferivel')
+        with np.load(path/'heldout.npz',allow_pickle=False) as heldout:
+            output=np.asarray(predictor.model(heldout['x'][:1],training=False))
+            if output.shape!=(1,2 if m['task']=='position' else 4) or not np.isfinite(output).all():
+                raise ValueError('inferencia_demo_invalida')
+    except Exception:
+        save_json(path/'manifest.json',original)
+        raise
+    return m

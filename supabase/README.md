@@ -58,3 +58,12 @@ depois de conferir o MD5 do conteúdo (`4ae74a6f…` e `f51e7b7c…`, sem as lin
 Teste isolado: `cd supabase/testes; pnpm install --ignore-workspace; node --test ml.test.mjs` (PGlite, aplica
 todas as migrations com `pg_cron` simulado). Para o teste ponta a ponta com Python, defina
 `ARGOS_TEST_PYTHON` com o Python do `ml/.venv`.
+
+## Tabela de modelos do ML (aplicada em 23/11/2026)
+
+`20261123171004_argos_ml_modelos.sql` cria `argos_modelos_ml`: metadados públicos de cada versão de modelo
+(tarefa, aprovação para demonstração ou produção, origem, referencial, métricas), com RLS de leitura para o
+dono da propriedade e escrita só pelo processo de servidor. Foi aplicada pelo Larápio no projeto hospedado
+com a versão `20261123171004`; o arquivo do pacote dele se chamava `20261123142644_argos_ml_modelos.sql` e tem
+o mesmo conteúdo (conferido contra o histórico do Supabase). Coberta por `testes/ml.test.mjs` (teste 9, que
+precisa de `ARGOS_TEST_DEMO_EXPORT` gerado pelo `pytest tests/test_academic.py`).

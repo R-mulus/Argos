@@ -1,5 +1,14 @@
 # Sprints e evidências
 
+## MVP acadêmico — 23/11/2026
+
+Somente backend-iot, sem nova branch/merge/cherry-pick/push nesta etapa. S2–S5 ganharam modo
+acadêmico explícito, aprovação demo separada e registro persistido de modelos. S7 mantém RPC
+SQL e RLS. S8 (backend) agora atende via SQL, sem Python/disco do ML; frontend não foi alterado.
+S9 tem testes isolados de HTTP, GRU→PostgreSQL e isolamento. S10 tem guia de execução.
+Coleta física, treino a partir dela, aprovação do modelo coletado e deploy autorizado permanecem
+pendentes. Critérios de laboratório não substituem esses marcos. Ver relatório e guia do MVP.
+
 ## Atualização de 22/11/2026 — entrega Larápio
 
 S7 implementada em SQL e validada isoladamente; S3–S6 validadas tecnicamente com fixtures,
