@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ComunicacaoReceptor, LocalizacaoRecenteIoT, PosicaoAnimal, ResumoMonitoramento } from "@argos/shared";
-import { montarDadosMapa, montarTrilha } from "./mapa";
+import { montarDadosMapa, montarTrilha, zoomMaximoSatelite } from "./mapa";
 
 const AGORA = Date.parse("2026-11-17T12:00:00Z");
 const iso = (minutosAtras: number) => new Date(AGORA - minutosAtras * 60_000).toISOString();
@@ -86,5 +86,17 @@ describe("montarTrilha", () => {
     expect(trilha.aceitas.map(e => e.x_m)).toEqual([0, 3]);
     expect(trilha.naoUsadas.map(a => a.situacao)).toEqual(["salto_descartado"]);
     expect(montarTrilha([], AGORA)).toBeNull();
+  });
+});
+
+describe("zoomMaximoSatelite", () => {
+  it("usa 17 por padrão e aceita só inteiros de 1 a 19", () => {
+    expect(zoomMaximoSatelite(undefined)).toBe(17);
+    expect(zoomMaximoSatelite("")).toBe(17);
+    expect(zoomMaximoSatelite("18")).toBe(18);
+    expect(zoomMaximoSatelite("19")).toBe(19);
+    expect(zoomMaximoSatelite("20")).toBe(17);
+    expect(zoomMaximoSatelite("16.5")).toBe(17);
+    expect(zoomMaximoSatelite("abc")).toBe(17);
   });
 });
