@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="description" content="Monitor independente de localização experimental do transmissor Argos, com receptores ESP32 e dados reais do Supabase." />
+  <title>Argos • Monitor de Localização em Tempo Real</title>
+  <style>
+    :root{--brown:#4b311f;--brown2:#62432e;--ink:#2e2620;--orange:#f58a18;--orange-dark:#dc710c;--orange-pale:#fff3e5;--paper:#faf8f5;--muted:#827b75;--line:#e8e1d9;--green:#139b60;--green-bg:#e9f8ef;--warn:#bb7618;--red:#c25442;--white:#fff;--shadow:0 18px 38px rgba(74,49,29,.055);font-synthesis:none}
+    *{box-sizing:border-box}
+    html{background:var(--paper);scroll-behavior:smooth}
+    body{margin:0;color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}
+    button{font:inherit;cursor:pointer}
+    button:focus-visible{outline:3px solid rgba(245,138,24,.45);outline-offset:3px}
+    .navbar{height:72px;background:var(--brown);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 max(26px,calc((100vw - 1440px)/2));box-shadow:0 2px 10px rgba(32,15,7,.1)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:730;font-size:23px;letter-spacing:-.65px;white-space:nowrap}
+    .brand-icon{width:35px;height:35px;border-radius:9px;background:var(--orange);display:grid;place-items:center}
+    .brand-sep{height:23px;width:1px;background:#876e5b;margin:0 4px}
+    .brand-suffix{color:#ebdcd0;font-size:12px;letter-spacing:2px;font-weight:700}
+    .nav-right{display:flex;align-items:center;gap:18px}
+    .top-note{display:flex;align-items:center;gap:7px;color:#e8d7c7;font-size:12px}
+    .tiny-circle{width:7px;height:7px;background:#8ae2aa;border-radius:50%;box-shadow:0 0 0 4px rgba(123,213,149,.12)}
+    .nav-button{display:inline-flex;align-items:center;gap:9px;color:white;background:#654632;border:1px solid #80624b;border-radius:9px;padding:10px 14px;font-weight:630;font-size:12px}
+    .nav-button:hover{background:#77513a}
+    .container{max-width:1440px;margin:auto;padding:36px 28px 28px}
+    .toprow{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:26px}
+    .eyebrow{display:flex;align-items:center;gap:9px;color:#9b7552;font-weight:800;font-size:11px;letter-spacing:1.9px;margin-bottom:9px;text-transform:uppercase}
+    .eyebrow i{display:inline-block;width:18px;height:2px;background:var(--orange)}
+    h1{font-weight:760;letter-spacing:-1.25px;font-size:clamp(27px,3vw,37px);line-height:1.16;margin:0 0 10px}
+    .intro{color:#7e7770;font-size:13px;margin:0;line-height:1.6}
+    .statuspill{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;border:1px solid #d6eadb;background:#effbf2;color:#167749;padding:11px 15px;border-radius:99px;font-weight:750;font-size:11px;letter-spacing:.3px}
+    .statuspill .dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(19,155,96,.13)}
+    .statuspill.stale{background:#fff6e9;color:#946419;border-color:#f3dcc0}.statuspill.stale .dot{background:#d9992f;box-shadow:none}
+    .diagnostic{margin:-10px 0 20px;padding:13px 16px;border-radius:10px;border:1px solid #efccbf;background:#fff2eb;color:#924531;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+    .diagnostic[hidden]{display:none}
+    .statuspill.offline{background:#fff1ed;color:#ab3c2e;border-color:#f5d0c4}.statuspill.offline .dot{background:#c25442;box-shadow:none}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:20px}
+    .metric{border:1px solid var(--line);background:var(--white);border-radius:13px;padding:21px 23px 18px;min-height:139px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .metric:before{content:"";position:absolute;right:0;top:0;width:44px;height:5px;background:var(--orange);border-radius:0 0 0 8px}
+    .metric-head{display:flex;align-items:center;gap:10px;color:#887e73;font-size:11px;letter-spacing:1px;font-weight:800;text-transform:uppercase}
+    .metric-head svg{color:#ac8b6e}
+    .metric-value{font-weight:760;font-size:31px;letter-spacing:-1px;margin-top:16px;line-height:1}
+    .metric-value small{font-weight:650;color:#90877d;font-size:15px;letter-spacing:0}
+    .metric-sub{color:#8f877e;font-size:11px;margin-top:10px}
+    .workspace{display:grid;grid-template-columns:minmax(0,1.69fr) minmax(320px,.93fr);gap:18px;align-items:start}
+    .surface{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+    .panel-head{padding:20px 23px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid #f0ebe6}
+    .hgroup{display:flex;align-items:center;gap:12px}
+    .panel-icon{width:36px;height:36px;display:grid;place-items:center;background:#faf2e8;color:#9b5e2e;border-radius:10px;flex:none}
+    h2,h3,p{margin-top:0}
+    h2{font-size:15px;margin:0 0 4px;font-weight:760;letter-spacing:-.2px}
+    .panel-caption{color:#9b938b;font-size:11px;margin:0}
+    .micro-tag{background:#fff2e5;color:#b86212;border:1px solid #fde1c3;padding:7px 10px;border-radius:7px;font-size:10px;font-weight:800;letter-spacing:.55px;white-space:nowrap}
+    .map-surface{position:relative;background:#f9f7f3;min-height:570px;overflow:hidden}
+    #field{width:100%;height:570px;display:block}
+    .map-overlay{position:absolute;left:21px;top:22px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+    .map-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(89,63,40,.1);padding:8px 11px;background:rgba(255,255,255,.91);border-radius:7px;box-shadow:0 4px 15px rgba(61,39,22,.04);color:#665546;font-weight:780;font-size:10px;letter-spacing:.5px}
+    .map-chip .live-dot{background:#a99f96;width:7px;height:7px;border-radius:50%}
+    .map-chip .live-dot.live{background:#0f9c58;box-shadow:0 0 0 3px #daf5e6}
+    .map-chip .live-dot.stale{background:#df9a37}
+    .map-chip .live-dot.offline{background:#c25442}
+    .map-legend{position:absolute;right:20px;bottom:18px;background:rgba(255,255,255,.96);border-radius:9px;border:1px solid #e5ded4;padding:13px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 18px rgba(39,25,13,.07)}
+    .legend-row{display:flex;align-items:center;gap:9px;color:#665c53;font-size:11px;font-weight:650;white-space:nowrap}
+    .swatch{width:10px;height:10px;border-radius:50%;background:var(--orange)}
+    .swatch.rx{background:var(--brown)}
+    .swatch.path{height:3px;width:19px;border-radius:9px;background:#e6a260}
+    .map-tools{position:absolute;right:18px;top:19px;display:flex;gap:8px}
+    .map-tool{border:1px solid #e8dfd4;background:#fff;color:var(--brown);border-radius:8px;padding:9px 12px;font-size:11px;font-weight:730;box-shadow:0 3px 14px rgba(50,29,15,.05)}
+    .map-tool:hover,.map-tool[aria-pressed="true"]{background:#fff2e3;border-color:#edcda6;color:#b56513}
+    .empty-map{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);max-width:370px;text-align:center;padding:25px;border-radius:12px;background:rgba(255,255,255,.84);border:1px solid #eee4da;box-shadow:0 14px 30px rgba(68,37,13,.045)}
+    .empty-map strong{font-size:14px;display:block;margin-bottom:8px}
+    .empty-map p{color:#837b73;font-size:12px;line-height:1.55;margin-bottom:0}
+    .mapfoot{display:grid;grid-template-columns:1fr 1fr;gap:20px;border-top:1px solid #efe9e2;background:#fff;padding:18px 23px}
+    .foot-title{font-size:10px;color:#a49b90;letter-spacing:1px;text-transform:uppercase;font-weight:800;margin-bottom:7px}
+    .foot-value{font-size:12px;font-weight:740;color:#4f3d2e}
+    .side{display:flex;flex-direction:column;gap:17px}
+    .transmitter{position:relative;overflow:hidden}
+    .transmitter:before{content:"";position:absolute;top:0;right:0;width:78px;height:8px;background:var(--orange);border-radius:0 0 0 12px}
+    .tx-main{padding:21px 23px}
+    .tx-flex{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+    .tx-symbol{width:52px;height:52px;background:linear-gradient(145deg,#ff9d2f,#f18011);color:white;border-radius:14px;display:grid;place-items:center;flex:none;box-shadow:0 8px 16px rgba(245,138,24,.18)}
+    .tx-kicker{font-size:10px;letter-spacing:1.45px;color:#a49b90;font-weight:800;margin-bottom:4px}
+    .tx-name{font-size:23px;letter-spacing:-.8px;font-weight:790;line-height:1.1;margin-bottom:5px}
+    .tx-desc{color:#968b81;font-size:11px}
+    .tx-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid #f0ebe5;padding-top:18px}
+    .small-stat label{display:block;font-size:10px;color:#998e85;margin-bottom:7px;font-weight:680}
+    .small-stat strong{font-size:14px;font-weight:790}
+    .read-only-note{background:#fffaf4;color:#967143;font-size:10.5px;border-top:1px solid #f3e5d6;padding:11px 23px;line-height:1.55;display:flex;align-items:center;gap:8px}
+    .read-only-note svg{flex:none}
+    .rx-panel .panel-head{padding:18px 20px}
+    .rx-list{padding:0 20px 5px}
+    .rx-card{padding:17px 0;border-bottom:1px solid #f2eee9}
+    .rx-card:last-child{border-bottom:none}
+    .rx-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .rx-title{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:780;color:var(--brown)}
+    .rx-icon{border:1px solid #eadfd5;background:#fcf8f3;border-radius:8px;color:#946b4c;display:grid;place-items:center;width:29px;height:29px}
+    .reading-state{font-size:10px;color:#12985c;font-weight:750;display:flex;align-items:center;gap:5px}
+    .reading-state i{width:7px;height:7px;background:#14a161;border-radius:50%}
+    .reading-state.no{color:#a19a92}.reading-state.no i{background:#b3aca5}
+    .rx-sub{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:10px}
+    .rx-value{font-size:24px;letter-spacing:-.8px;color:#443023;font-weight:790;line-height:1.1}
+    .rx-value small{font-size:11px;color:#97867b;font-weight:700;letter-spacing:0}
+    .rx-distance{color:#95877a;font-size:10px;text-align:right;line-height:1.45}
+    .rx-bars{display:flex;gap:4px;align-items:end;margin-top:12px;height:16px}
+    .rx-bars span{width:18px;height:5px;border-radius:2px;background:#eae5df}
+    .rx-bars span:nth-child(2){height:8px}.rx-bars span:nth-child(3){height:11px}.rx-bars span:nth-child(4){height:14px}.rx-bars span:nth-child(5){height:16px}
+    .rx-bars span.on{background:var(--orange)}
+    .rx-foot{display:flex;justify-content:space-between;gap:10px;margin-top:11px;font-size:10px;color:#a09790}
+    .explain{padding:21px 23px}
+    .explain h3{font-size:13px;display:flex;align-items:center;gap:9px;font-weight:790;margin:0 0 11px}
+    .explain p{color:#82786f;font-size:11.5px;line-height:1.65;margin:0}
+    .explain strong{color:#534130}
+    .bottom-note{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#9f948a;font-size:11px;padding:23px 0 0}
+    .bottom-note strong{color:#6b5544;font-size:10px;letter-spacing:1.5px}
+    .tx-dot-ring{animation:pulse 2.3s ease-in-out infinite;transform-origin:center}
+    @keyframes pulse{0%{opacity:.22}55%{opacity:.02}100%{opacity:.22}}
+    .busy .tx-dot-ring{animation:none;opacity:.13}
+    @media (max-width:1140px){.workspace{grid-template-columns:minmax(0,1fr)}.side{display:grid;grid-template-columns:1fr 1fr;align-items:start}.side .explain{grid-column:1/-1}.metrics{gap:11px}.map-surface,#field{height:520px;min-height:520px}}
+    @media (max-width:760px){.navbar{height:65px;padding:0 17px}.brand{font-size:19px;gap:8px}.brand-icon{height:31px;width:31px}.brand-suffix{font-size:9px;letter-spacing:1px}.nav-right .top-note{display:none}.nav-button{padding:9px 10px}.nav-button span{display:none}.container{padding:24px 14px}.toprow{align-items:flex-start;flex-direction:column;gap:14px}h1{font-size:29px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{padding:16px;min-height:115px}.metric-value{font-size:26px;margin-top:13px}.metric-head{font-size:9px}.map-surface,#field{height:430px;min-height:430px}.map-overlay{left:10px;top:12px}.map-tools{right:10px;top:12px}.map-chip{font-size:9px;padding:7px}.map-tool{padding:7px 9px;font-size:10px}.map-legend{right:10px;bottom:12px;padding:9px 11px;gap:7px}.legend-row{font-size:9px}.panel-head{padding:17px}.side{display:flex}.mapfoot{padding:14px 16px;gap:9px}.foot-value{font-size:11px}.bottom-note{flex-wrap:wrap}.micro-tag{display:none}}
+    @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand" aria-label="Argos, monitor de localização">
+      <div class="brand-icon"><svg width="27" height="27" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 12h4l2-4 3 3h7l3-3 2 4h2l-1 6-3 1-1 7h-3l-1-7h-7l-1 7H8l-1-8-2-2z" fill="white"/><circle cx="11" cy="14" r="1" fill="#a75c18"/><circle cx="23" cy="14" r="1" fill="#a75c18"/><path d="M15 17h4l-2 2z" fill="#a75c18"/></svg></div>
+      <span>Argos</span><i class="brand-sep"></i><span class="brand-suffix">MONITOR LIVE</span>
+    </div>
+    <div class="nav-right"><span class="top-note"><i class="tiny-circle"></i> Leitura independente · Supabase</span><button type="button" class="nav-button" id="fullscreenButton" title="Ativar ou sair da tela cheia"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg><span>Modo apresentação</span></button></div>
+  </header>
+  <main class="container">
+    <section class="toprow">
+      <div><div class="eyebrow"><i></i><span id="propertyName">Fazenda experimental</span> / LOCALIZAÇÃO</div><h1>Onde está o transmissor agora?</h1><p class="intro">Uma visão em tempo quase real do sinal recebido pelos ESP32 e da posição calculada pelo Argos.</p></div>
+      <div class="statuspill stale" id="statusPill" role="status" aria-live="polite"><i class="dot"></i><span id="statusLabel">Conectando ao monitor...</span></div>
+    </section>
+    <div class="diagnostic" id="diagnostic" role="alert" hidden></div>
+    <section class="metrics" aria-label="Indicadores da localização">
+      <div class="metric"><div class="metric-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19l15-15M8 4H4v4m12 11h4v-4"/></svg> COORDENADA X</div><div class="metric-value"><span id="metricX">—</span> <small>m</small></div><div class="metric-sub">Posição estimada no eixo horizontal</div></div>
+      <div class="metric"><div class="metric-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21V3m-4 4 4-4 4 4M6 20h12"/></svg> COORDENADA Y</div><div class="metric-value"><span id="metricY">—</span> <small>m</small></div><div class="metric-sub">Posição estimada no eixo vertical</div></div>
+      <div class="metric"><div class="metric-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a14 14 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h.01"/></svg> RECEPTORES NO EVENTO</div><div class="metric-value"><span id="metricRx">—</span> <small id="rxDenominator">/ 3</small></div><div class="metric-sub">Medições do evento posicionado</div></div>
+      <div class="metric"><div class="metric-head"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 2M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z"/></svg> ÚLTIMA POSIÇÃO</div><div class="metric-value" style="font-size:28px"><span id="metricTime">—:—:—</span></div><div class="metric-sub" id="metricAge">Aguardando dados do Supabase</div></div>
+    </section>
+    <section class="workspace">
+      <div class="surface">
+        <div class="panel-head"><div class="hgroup"><span class="panel-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16"/></svg></span><div><h2>Mapa de localização</h2><p class="panel-caption">Plano cartesiano do curral · coordenadas locais em metros</p></div></div><span class="micro-tag">TRILATERAÇÃO RSSI</span></div>
+        <div class="map-surface" id="mapShell">
+          <svg id="field" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Posição estimada do transmissor e os receptores ESP32 em um mapa local do curral" viewBox="0 0 900 570">
+            <defs><filter id="halo" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="9"/></filter></defs>
+            <rect width="900" height="570" fill="#f9f7f3" />
+            <g id="gridLayer"></g><g id="ringsLayer"></g><g id="edgesLayer"></g><g id="trailsLayer"></g><g id="linesLayer"></g><g id="nodesLayer"></g>
+          </svg>
+          <div class="map-overlay"><span class="map-chip"><i id="mapLiveDot" class="live-dot"></i><span id="mapLiveText">Aguardando posição</span></span><span class="map-chip">EIXOS X / Y · METROS</span></div>
+          <div class="map-tools"><button type="button" class="map-tool" id="ringsButton" aria-pressed="false" title="Mostrar raios estimados a partir do sinal RSSI">Raios RSSI</button><button type="button" class="map-tool" id="refreshButton" title="Atualizar os dados agora">↻ Atualizar</button></div>
+          <div class="empty-map" id="emptyMap"><strong>Conectando aos dados reais...</strong><p>Os pontos dos receptores e a posição do transmissor aparecerão automaticamente quando o Supabase responder.</p></div>
+          <div class="map-legend" aria-label="Legenda"><div class="legend-row"><span class="swatch"></span>Transmissor</div><div class="legend-row"><span class="swatch rx"></span>Receptores ESP32</div><div class="legend-row"><span class="swatch path"></span>Trajeto recente</div></div>
+        </div>
+        <div class="mapfoot"><div><div class="foot-title">ÚLTIMO PACOTE RECEBIDO</div><div class="foot-value" id="lastPacket">Aguardando recepção</div></div><div><div class="foot-title">ÚLTIMA POSIÇÃO CALCULADA</div><div class="foot-value" id="lastLocation">Aguardando trilateração</div></div></div>
+      </div>
+      <aside class="side">
+        <article class="surface transmitter"><div class="tx-main"><div class="tx-flex"><div class="tx-symbol"><svg width="29" height="29" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 13h5l2-3 3 2h5l3-2 2 3h2l-1 7-3 1-1 5h-3l-1-5h-8l-1 5H8l-1-6-2-2z" fill="white"/><circle cx="12" cy="15" r="1.1" fill="#d7720a"/><circle cx="23" cy="15" r="1.1" fill="#d7720a"/></svg></div><div><div class="tx-kicker">TRANSMISSOR MONITORADO</div><div class="tx-name" id="txCode">—</div><div class="tx-desc" id="txName">Aguardando identificação</div></div></div><div class="tx-stats"><div class="small-stat"><label>Idade da posição</label><strong id="txAge">—</strong></div><div class="small-stat"><label>Resíduo do ajuste RSSI</label><strong id="txResidual">—</strong></div><div class="small-stat"><label>Pontos na trilha</label><strong id="txTrail">—</strong></div><div class="small-stat"><label>Referencial</label><strong id="txRef">—</strong></div></div></div><div class="read-only-note"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l9 4v6c0 6-4 9-9 10-5-1-9-4-9-10V6zM8 12l3 3 5-6"/></svg>Monitor somente leitura · não interfere nos workers nem no MQTT</div></article>
+        <article class="surface rx-panel"><div class="panel-head"><div class="hgroup"><span class="panel-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20v-7M9 20h6M12 9h.01M7 13a7 7 0 0 1 0-9m10 9a7 7 0 0 0 0-9M4 16a12 12 0 0 1 0-15m16 15a12 12 0 0 0 0-15"/></svg></span><div><h2>Receptores ESP32</h2><p class="panel-caption">RSSI do evento mais recente recebido</p></div></div><span class="micro-tag" id="rxTotal">0 / 3</span></div><div id="receiversList" class="rx-list"><div class="rx-card" style="color:#948982;font-size:12px">Aguardando leituras...</div></div></article>
+        <article class="surface explain"><h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>Como a localização é calculada</h3><p>Cada receptor mede a intensidade <strong>RSSI (dBm)</strong> do mesmo transmissor. O Argos combina as medições de <strong>três receptores</strong> com as coordenadas locais cadastradas e calcula uma posição X/Y experimental. <strong>O resíduo do ajuste não é uma precisão GPS certificada.</strong></p></article>
+      </aside>
+    </section>
+    <footer class="bottom-note"><span>Dados reais via Supabase · atualização por consulta automática · nenhum dado simulado</span><strong>ARGOS / PROVA DE CONCEITO</strong></footer>
+  </main>
+  <script>
+  (() => {
+    "use strict";
+    const el = id => document.getElementById(id);
+    const ns = "http://www.w3.org/2000/svg";
+    const svgnode = (tag, props = {}, txt) => { const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(props))n.setAttribute(k,String(v));if(txt!==undefined)n.textContent=String(txt);return n; };
+    const clear = e => {while(e.firstChild)e.removeChild(e.firstChild)};
+    const num = (v,d=2) => Number.isFinite(Number(v)) && v!==null && v!==undefined ? Number(v).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d}) : "—";
+    const time = iso => {const d=new Date(iso);return iso&&!isNaN(d.valueOf())?new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(d):"—";};
+    const age = (stamp, now) => stamp ? Math.max(0, (now - Date.parse(stamp)) / 1000) : Infinity;
+    const ageString = sec => !Number.isFinite(sec)?"Sem leitura":sec<3?"agora":sec<60?`${Math.round(sec)} s`:sec<3600?`${Math.floor(sec/60)} min`:sec<86400?`${Math.floor(sec/3600)} h`:`${Math.floor(sec/86400)} d`;
+    const isNum = x => x!==null&&x!==undefined&&Number.isFinite(Number(x));
+    let data=null, lastReceivedAt=0, fetching=false, showRings=false, offline=false, loadingMessage=null, lastError=null;
+    const W=900,H=570;
+
+    function currentServerMs(){return data ? Date.parse(data.server_time)+(Date.now()-lastReceivedAt) : Date.now()}
+    function setStatus(label, kind){const box=el('statusPill');box.className='statuspill '+(kind==='live'?'':kind);el('statusLabel').textContent=label;el('mapLiveText').textContent=kind==='live'?'Posição recente':label;el('mapLiveDot').className='live-dot '+kind;el('mapShell').classList.toggle('busy',kind!=='live')}
+    function refreshStatus(){
+      if(offline){setStatus(data?'Atualização indisponível · último dado salvo':'Falha na conexão com Supabase','offline');return}
+      if(!data){setStatus(loadingMessage || 'Conectando ao monitor...','stale');return}
+      const now=currentServerMs(), pos=data.posicao;
+      const packet=age(data.ultimo_pacote_em,now), location=age(pos?.observado_em,now);
+      if(!pos){setStatus(packet<25?'Recebendo RSSI · aguardando posição':'Aguardando localização','stale')}
+      else if(location<=25){setStatus('LOCALIZAÇÃO AO VIVO','live')}
+      else if(packet<=25){setStatus('RSSI chegando · posição aguardando','stale')}
+      else{setStatus('Sem nova posição · último ponto salvo','stale')}
+      el('metricAge').textContent=pos?'Calculada há '+ageString(location):'Nenhuma posição experimental disponível';
+      el('txAge').textContent=ageString(location);
+      if(data.ultimo_pacote_em)el('lastPacket').textContent=time(data.ultimo_pacote_em)+' · há '+ageString(packet);
+    }
+
+    function signalBars(v){
+      if(!isNum(v))return 0;
+      return Math.max(1,Math.min(5,Math.round((Number(v)+100)/12)));
+    }
+    function estimatedRange(r){
+      if(!isNum(r.rssi_dbm)||!isNum(r.rssi_1m_dbm)||!isNum(r.expoente_perda)||Number(r.expoente_perda)<=0)return null;
+      const d=Math.pow(10,(Number(r.rssi_1m_dbm)-Number(r.rssi_dbm))/(10*Number(r.expoente_perda)));
+      return d>0 && Number.isFinite(d)?d:null;
+    }
+    function renderRx(rx){
+      const list=el('receiversList');clear(list);
+      if(!rx.length){const p=document.createElement('div');p.className='rx-card';p.textContent='Nenhum receptor com coordenadas foi encontrado nesta propriedade.';list.append(p);return;}
+      const recorded=rx.filter(x=>isNum(x.rssi_dbm)).length;
+      el('rxTotal').textContent=recorded+' / '+rx.length;
+      for(const r of rx){
+        const card=document.createElement('div');card.className='rx-card';
+        const top=document.createElement('div');top.className='rx-top';
+        const ttl=document.createElement('div');ttl.className='rx-title';
+        const ico=document.createElement('span');ico.className='rx-icon';ico.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21v-8m-4 8h8M9 9a4 4 0 0 1 6 0M6 6a8 8 0 0 1 12 0M3 3a12 12 0 0 1 18 0"/></svg>';
+        const label=document.createElement('span');label.textContent=r.codigo;ttl.append(ico,label);
+        const state=document.createElement('span');state.className='reading-state '+(isNum(r.rssi_dbm)?'':'no');
+        const dot=document.createElement('i');const st=document.createElement('span');st.textContent=isNum(r.rssi_dbm)?'Leitura recebida':'Sem leitura no evento';state.append(dot,st);top.append(ttl,state);
+        const sub=document.createElement('div');sub.className='rx-sub';
+        const value=document.createElement('div');value.className='rx-value';value.textContent=isNum(r.rssi_dbm)?num(r.rssi_dbm,0):'—';
+        const unit=document.createElement('small');unit.textContent=' dBm';value.append(unit);
+        const distance=document.createElement('div');distance.className='rx-distance';
+        const range=estimatedRange(r);distance.textContent=range!==null?'Distância RSSI estimada\n≈ '+num(range,1)+' m':'Aguardando sinal';distance.style.whiteSpace='pre-line';sub.append(value,distance);
+        const bars=document.createElement('div');bars.className='rx-bars';bars.setAttribute('aria-label','Nível relativo de sinal');
+        for(let i=0;i<5;i++){const b=document.createElement('span');if(i<signalBars(r.rssi_dbm))b.className='on';bars.append(b)}
+        const footer=document.createElement('div');footer.className='rx-foot';
+        const pos=document.createElement('span');pos.textContent='Posição ('+num(r.x_m,0)+', '+num(r.y_m,0)+') m';
+        const at=document.createElement('span');at.textContent=r.medido_em?'Leitura '+time(r.medido_em):'Sem RSSI deste evento';footer.append(pos,at);
+        card.append(top,sub,bars,footer);list.append(card);
+      }
+    }
+
+    function mapCoords(receivers,position,trail){
+      const points=receivers.filter(r=>isNum(r.x_m)&&isNum(r.y_m)).map(r=>[Number(r.x_m),Number(r.y_m)]);
+      if(position&&isNum(position.x_m)&&isNum(position.y_m))points.push([Number(position.x_m),Number(position.y_m)]);
+      if(!points.length)return {scale:35,fx:x=>W/2+x*35,fy:y=>H/2-y*35,minX:-5,maxX:5,minY:-5,maxY:5};
+      const loX=Math.min(...points.map(p=>p[0])),hiX=Math.max(...points.map(p=>p[0]));
+      const loY=Math.min(...points.map(p=>p[1])),hiY=Math.max(...points.map(p=>p[1]));
+      const centerX=(loX+hiX)/2,centerY=(loY+hiY)/2;
+      const halfWidth=Math.max(6.7,(hiX-loX)/2+2.2),halfHeight=Math.max(6.7,(hiY-loY)/2+2.2);
+      const scale=Math.min(750/(halfWidth*2),470/(halfHeight*2));
+      return {scale,fx:x=>W/2+(x-centerX)*scale,fy:y=>H/2-(y-centerY)*scale,minX:centerX-halfWidth,maxX:centerX+halfWidth,minY:centerY-halfHeight,maxY:centerY+halfHeight};
+    }
+
+    function renderMap(){
+      for(const n of ['gridLayer','ringsLayer','edgesLayer','trailsLayer','linesLayer','nodesLayer'])clear(el(n));
+      if(!data)return;
+      const rx=(data.receptores||[]).filter(r=>isNum(r.x_m)&&isNum(r.y_m));
+      const pos=data.posicao && isNum(data.posicao.x_m)&&isNum(data.posicao.y_m)?data.posicao:null;
+      const hasMap=rx.length>0||!!pos;
+      el('emptyMap').hidden=hasMap;
+      if(!hasMap){
+        el('emptyMap').querySelector('strong').textContent='Aguardando medições';
+        el('emptyMap').querySelector('p').textContent='Conexão ativa, mas não foram encontradas coordenadas dos receptores ou posições do transmissor. Confira a propriedade e os workers.';
+        return;
+      }
+      const c=mapCoords(rx,pos,data.trilha||[]);const g=el('gridLayer');
+      // Grid métrico real: sem coordenadas geográficas fictícias.
+      for(let x=Math.ceil(c.minX/2)*2;x<=c.maxX;x+=2){let X=c.fx(x);g.append(svgnode('line',{x1:X,y1:44,x2:X,y2:531,stroke:'#e8e3dc','stroke-width':1}));g.append(svgnode('text',{x:X,y:545,'text-anchor':'middle','font-size':10,fill:'#a19a91'},x));}
+      for(let y=Math.ceil(c.minY/2)*2;y<=c.maxY;y+=2){let Y=c.fy(y);g.append(svgnode('line',{x1:48,y1:Y,x2:853,y2:Y,stroke:'#e8e3dc','stroke-width':1}));g.append(svgnode('text',{x:32,y:Y+4,'text-anchor':'middle','font-size':10,fill:'#a19a91'},y));}
+      g.append(svgnode('text',{x:849,y:551,'text-anchor':'end','font-size':10,'font-weight':700,fill:'#938579'},'X (m)'));
+      g.append(svgnode('text',{x:28,y:36,'font-size':10,'font-weight':700,fill:'#938579'},'Y (m)'));
+      if(rx.length>=3){const poly=rx.map(r=>c.fx(Number(r.x_m)).toFixed(1)+','+c.fy(Number(r.y_m)).toFixed(1)).join(' ');
+        el('edgesLayer').append(svgnode('polygon',{points:poly,fill:'#e4c6a6','fill-opacity':'.17',stroke:'#a68262','stroke-opacity':'.6','stroke-width':1.7,'stroke-dasharray':'8 7'}));}
+      if(showRings){for(const r of rx){const d=estimatedRange(r);if(d===null)continue;const radius=Math.min(1500,d*c.scale);const shape=svgnode('circle',{cx:c.fx(Number(r.x_m)),cy:c.fy(Number(r.y_m)),r:radius,fill:'#f58a18','fill-opacity':'.025',stroke:'#ed9e4b','stroke-opacity':'.55','stroke-width':1.6,'stroke-dasharray':'6 6'});el('ringsLayer').append(shape)}}
+      // Só liga pontos do MESMO trecho contínuo. Nunca desenha salto entre dias.
+      const raw=(data.trilha||[]).filter(p=>isNum(p.x_m)&&isNum(p.y_m)&&p.observado_em);
+      if(raw.length){
+        const current=raw[raw.length-1];let start=raw.length-1;
+        while(start>0 && Date.parse(raw[start].observado_em)-Date.parse(raw[start-1].observado_em)<=90000 && Date.parse(raw[start].observado_em)-Date.parse(raw[start-1].observado_em)>0)start--;
+        const contiguous=raw.slice(Math.max(start,raw.length-55));
+        el('txTrail').textContent=contiguous.length+' posições';
+        if(contiguous.length>1){el('trailsLayer').append(svgnode('polyline',{points:contiguous.map(p=>c.fx(Number(p.x_m)).toFixed(2)+','+c.fy(Number(p.y_m)).toFixed(2)).join(' '),fill:'none',stroke:'#e9a265','stroke-width':3.2,'stroke-linecap':'round','stroke-linejoin':'round','stroke-opacity':'.78'}));}
+        contiguous.slice(0,-1).filter((_,i)=>i%2===0).forEach((p,i)=>{el('trailsLayer').append(svgnode('circle',{cx:c.fx(Number(p.x_m)),cy:c.fy(Number(p.y_m)),r:2.9,fill:'#e39a5d','fill-opacity':'.5'}));});
+      }else el('txTrail').textContent='0 posições';
+      if(pos){
+        const px=c.fx(Number(pos.x_m)),py=c.fy(Number(pos.y_m));
+        for(const r of rx.filter(x=>isNum(x.rssi_dbm)&&data.evento_rssi===data.evento_posicao)){const sx=c.fx(Number(r.x_m)),sy=c.fy(Number(r.y_m));
+          el('linesLayer').append(svgnode('line',{x1:sx,y1:sy,x2:px,y2:py,stroke:'#bd9472','stroke-opacity':'.53','stroke-width':1.6,'stroke-dasharray':'5 8'}));}
+      }
+      rx.forEach(r=>{
+        const x=c.fx(Number(r.x_m)),y=c.fy(Number(r.y_m));
+        const group=svgnode('g',{});group.append(svgnode('circle',{cx:x,cy:y,r:25,fill:'#533826','fill-opacity':'.09'}));
+        group.append(svgnode('circle',{cx:x,cy:y,r:17,fill:'#503422',stroke:'#fff','stroke-width':4}));
+        group.append(svgnode('path',{d:`M${x-7} ${y+3} Q${x} ${y-5} ${x+7} ${y+3} M${x-4} ${y-1} Q${x} ${y-6} ${x+4} ${y-1}`,fill:'none',stroke:'white','stroke-width':1.6,'stroke-linecap':'round'}));
+        group.append(svgnode('circle',{cx:x,cy:y+5,r:1.7,fill:'white'}));
+        const labelWidth=Math.max(69,String(r.codigo).length*7.8+24),yy=y>360?y-47:y+29;
+        group.append(svgnode('rect',{x:x-labelWidth/2,y:yy,width:labelWidth,height:24,rx:7,fill:'white',stroke:'#e5dcd1'}));
+        group.append(svgnode('text',{x,y:yy+16,'text-anchor':'middle','font-size':12,'font-weight':750,fill:'#554232'},r.codigo));
+        el('nodesLayer').append(group);
+      });
+      if(pos){const x=c.fx(Number(pos.x_m)),y=c.fy(Number(pos.y_m));const tx=svgnode('g',{});
+        tx.append(svgnode('circle',{cx:x,cy:y,r:33,fill:'#f58a18','fill-opacity':'.17',class:'tx-dot-ring'}));
+        tx.append(svgnode('circle',{cx:x,cy:y,r:24,fill:'#f58a18',filter:'url(#halo)','fill-opacity':'.3'}));
+        tx.append(svgnode('circle',{cx:x,cy:y,r:18,fill:'#f58a18',stroke:'#fff','stroke-width':4}));
+        tx.append(svgnode('path',{d:`M${x-8} ${y-3} Q${x} ${y-12} ${x+8} ${y-3} M${x-4} ${y+2}L${x} ${y+6}L${x+4} ${y+2} M${x} ${y+6}V${y+11}`,fill:'none',stroke:'white','stroke-width':2.2,'stroke-linecap':'round','stroke-linejoin':'round'}));
+        tx.append(svgnode('rect',{x:x+20,y:y-34,width:112,height:30,rx:8,fill:'#f58a18'}));
+        tx.append(svgnode('text',{x:x+32,y:y-14,'font-size':12,'font-weight':800,fill:'#fff'},data.transmissor?.codigo||'TX'));
+        el('nodesLayer').append(tx);
+      }
+    }
+
+    function render(d){
+      data=d;lastReceivedAt=Date.now();offline=d.estado==='desatualizado';
+      lastError=d.erro_atualizacao||null;
+      const diagnostic=el('diagnostic');
+      diagnostic.hidden=!lastError;
+      if(lastError)diagnostic.textContent='Falha ao atualizar o Supabase (mostrando última posição salva): '+lastError;
+      el('propertyName').textContent=d.propriedade||'Propriedade';
+      el('txCode').textContent=d.transmissor?.codigo||'Transmissor';
+      el('txName').textContent=d.transmissor?.nome||'Dispositivo monitorado';
+      const p=d.posicao;
+      el('metricX').textContent=p?num(p.x_m):'—';el('metricY').textContent=p?num(p.y_m):'—';
+      el('metricRx').textContent=p?String(p.receptores_utilizados??d.dados_evento??'—'):'—';
+      el('rxDenominator').textContent='/ '+(d.receptores?.length||3);
+      el('metricTime').textContent=p?time(p.observado_em):'—:—:—';
+      el('txResidual').textContent=p&&isNum(p.erro_residual_m)?num(p.erro_residual_m)+' m':'—';
+      el('txRef').textContent=p?.referencial_versao||'—';
+      el('lastLocation').textContent=p?time(p.observado_em)+' · '+num(p.x_m)+' m / '+num(p.y_m)+' m':'Aguardando trilateração';
+      renderRx(d.receptores||[]);renderMap();refreshStatus();
+    }
+
+    async function poll(){
+      if(fetching)return;
+      fetching=true;
+      const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),8000);
+      try{
+        const response=await fetch('/api/live',{cache:'no-store',signal:ctrl.signal});
+        let result;
+        try{result=await response.json()}catch(_){throw new Error('Resposta inválida do servidor Python. Verifique o terminal.')}
+        if(!response.ok || result.estado==='erro')throw new Error(result.erro || 'HTTP '+response.status);
+        if(result.estado==='carregando'){
+          offline=false;loadingMessage='Consultando Supabase · '+(result.segundos||0)+' s';
+          el('emptyMap').hidden=false;
+          el('emptyMap').querySelector('strong').textContent=result.aviso||'Consultando Supabase';
+          el('emptyMap').querySelector('p').textContent=(result.etapa||'Aguardando dados')+'. O monitor permanece responsivo durante a consulta.';
+          refreshStatus();
+          return;
+        }
+        if(result.estado!=='ok' && result.estado!=='desatualizado')throw new Error('Estado desconhecido na resposta do servidor.');
+        loadingMessage=null;
+        render(result);
+      }catch(error){
+        offline=true;lastError=error?.message||'Erro desconhecido';
+        const diag=el('diagnostic');diag.hidden=false;
+        diag.textContent='Erro ao obter dados: '+lastError+' · Verifique o terminal e acesse /api/health para diagnóstico.';
+        if(!data){
+          el('emptyMap').hidden=false;
+          el('emptyMap').querySelector('strong').textContent='Não foi possível carregar os dados';
+          el('emptyMap').querySelector('p').textContent=lastError;
+        }
+        refreshStatus();
+        console.error('[Argos Monitor]',lastError);
+      }finally{clearTimeout(tid);fetching=false;}
+    }
+    window.addEventListener('error',event=>{
+      offline=true;
+      const diag=el('diagnostic');diag.hidden=false;
+      diag.textContent='Erro na interface: '+(event.message||'erro inesperado')+'. Atualize com Ctrl+F5 e confira o console (F12).';
+      refreshStatus();
+    });
+    el('ringsButton').addEventListener('click',()=>{showRings=!showRings;el('ringsButton').setAttribute('aria-pressed',String(showRings));renderMap()});
+    el('refreshButton').addEventListener('click',poll);
+    el('fullscreenButton').addEventListener('click',()=>{if(document.fullscreenElement){document.exitFullscreen?.()}else{document.documentElement.requestFullscreen?.()}});
+    setInterval(poll,3000);setInterval(refreshStatus,1000);poll();
+  })();
+  </script>
+</body>
+</html>
