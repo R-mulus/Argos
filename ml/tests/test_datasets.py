@@ -6,7 +6,7 @@ from conftest import history,P
 
 def test_reproducible_and_tampering():
     rows=history(10)
-    ref=dict(property_id=P,version='development-v1',calibration_sha256='fixture',validated=False)
+    ref=dict(property_id=P,version='development-v1',calibration_sha256='a'*64,validated=False)
     a=seal_dataset(rows,[],'experimental',ref)
     b=seal_dataset(list(reversed(rows)),[],'experimental',ref)
     assert a['dataset_sha256']==b['dataset_sha256']

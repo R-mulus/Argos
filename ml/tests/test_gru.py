@@ -5,20 +5,23 @@ from argos_ml.config import SeriesConfig,LABELS
 from argos_ml.preprocessing import FEATURES,sequences,chronological_split
 from argos_ml.training import train,approve,regression_metrics,evaluate_saved
 from argos_ml.inference import Predictor
+from argos_ml.datasets import seal_dataset
 from conftest import history,P
 
 
 @pytest.mark.parametrize('task',['position','behavior'])
-def test_train_save_load_predict_synthetic(tmp_path,task):
+@pytest.mark.parametrize('source',['synthetic','experimental'])
+def test_train_save_load_predict_synthetic(tmp_path,task,source):
     tf=pytest.importorskip('tensorflow')
     rows=history(600)
-    dataset=dict(source='synthetic-test-only',localizacoes=rows,trusted_cameras=['test'],
-        rotulos=[dict(propriedade_id=r['propriedade_id'],animal_id=r['animal_id'],observado_em=r['observado_em'],
-                     comportamento=LABELS[(i//10)%4],camera_id='test',confianca=1) for i,r in enumerate(rows)])
+    dataset=seal_dataset(rows,
+        [dict(id=str(i),propriedade_id=r['propriedade_id'],animal_id=r['animal_id'],observado_em=r['observado_em'],
+              comportamento=LABELS[(i//10)%4],camera_id='test',confianca=1) for i,r in enumerate(rows)],
+        source,dict(property_id=P,version='test-only',calibration_sha256='a'*64,validated=False),['test'])
     cfg=SeriesConfig(steps=4,horizon_s=60)
     directory=tmp_path/task
     manifest=train(dataset,directory,cfg,task,epochs=2)
-    assert manifest['synthetic'] and not manifest['approved']
+    assert manifest['synthetic']==(source=='synthetic') and not manifest['approved']
     assert manifest['training_samples']>0 and manifest['test_samples']>0
     assert manifest['model_parameters']<10000
     train_x=sequences(chronological_split(rows)[0],cfg)[0]
@@ -37,6 +40,7 @@ def test_train_save_load_predict_synthetic(tmp_path,task):
     (directory/'manifest.json').write_text(json.dumps(original))
     assert predictor.status=='disponivel'
     reference=manifest['reference']
+    rows=[{**r,'referencial_versao':reference['version'],'calibracao_sha256':reference['calibration_sha256'],'origem':'real'} for r in rows]
     result=predictor.predict(rows[-10:],P,reference)
     assert result is not None and result['previsto_para']>result['observado_em']
     if task=='position':assert result['comportamento'] is None

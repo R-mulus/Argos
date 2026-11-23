@@ -49,6 +49,10 @@ class Predictor:
         if not reference or any(reference.get(k)!=self.meta['reference'].get(k)
                                 for k in ('property_id','version','calibration_sha256','validated')):
             return None
+        if any(r.get('referencial_versao') != reference['version']
+               or r.get('calibracao_sha256') != reference['calibration_sha256']
+               or r.get('origem') != 'real' for r in rows):
+            return None
         identities = {(r.get('propriedade_id'),r.get('animal_id'),r.get('transmissor_id')) for r in rows}
         if len(identities) != 1 or any(p != property_id or a is None or t is None for p,a,t in identities):
             return None
@@ -76,7 +80,8 @@ class Predictor:
             previsto_para=(row.observado_em + timedelta(seconds=self.cfg.horizon_s)).isoformat(),
             atual_x_m=float(row.x_m), atual_y_m=float(row.y_m),
             modelo_versao=self.meta['model_version'], comportamento=None, confianca=None,
-            probabilidades=None, proximo_x_m=None, proximo_y_m=None)
+            probabilidades=None, proximo_x_m=None, proximo_y_m=None,
+            referencial_versao=reference['version'], calibracao_sha256=reference['calibration_sha256'], origem='real')
         if self.meta['task'] == 'position':
             value = value * self.meta['target_scale'] + self.meta['target_mean']
             if not np.isfinite(value).all():
