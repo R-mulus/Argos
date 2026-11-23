@@ -1,5 +1,11 @@
 # Integração ML ↔ backend/frontend
 
+> **Atualização 23/11/2026:** a Sprint 7 entregou `argos_ml_analise` (KPIs em SQL). As migrations
+> `20261122235957` (proveniência) e `20261122235958` (KPIs) estão aplicadas no Supabase. A rota
+> `GET /api/iot/analise` chama a RPC com o JWT do usuário, sem Python na API. O `worker/` grava os avisos
+> de rejeição e recuperação, e o firmware recupera o horário após o NTP no mesmo boot. Branch de
+> integração publicada: `integracao/iot-ml-dev` (a `integracao/ml-backend-iot` remota é do Larápio).
+
 Atualizado em 22/11/2026 pelo lado do backend/frontend (Mateus), a partir da branch `backend-iot`
 em `b65d487` (Larápio) e da `dev` local. Divisão de papéis conforme o prompt de ML:
 

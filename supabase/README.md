@@ -41,3 +41,20 @@ As migrações seguintes adicionam pesagens manuais, exportação CSV, central d
 `20261122184338_argos_predicoes_sem_comportamento.sql` permite `comportamento`, `confianca` e `probabilidades` nulos em `argos_predicoes` (modelo de posição sem classificação).
 
 `testes/zona_historica.sql` cobre os casos do trigger, o preenchimento e a contagem no resumo, num PostgreSQL local. O `pg_cron` de `20261118113726` não existe fora do Supabase: no teste local, crie `cron.schedule` simulado e ignore o `create extension pg_cron`. Ver [docs/integracao/ML_BACKEND.md](../docs/integracao/ML_BACKEND.md).
+
+## Migrações do ML de 22/11/2026 (aplicadas no projeto hospedado em 23/11)
+
+`20261122235957_argos_ml_proveniencia.sql` e `20261122235958_argos_ml_kpis.sql` vêm da branch `backend-iot`
+(Larápio). Foram executadas a partir do histórico de migrações com as versões originais dos arquivos,
+depois de conferir o MD5 do conteúdo (`4ae74a6f…` e `f51e7b7c…`, sem as linhas `begin;`/`commit;`).
+
+- Proveniência: `argos_localizacoes` e `argos_predicoes` ganham `referencial_versao`, `calibracao_sha256`
+  e `origem`; `argos_observacoes_visao` ganha `revisado_em`/`revisado_por` e pode ser lida pelo dono da
+  propriedade só nas linhas revisadas (RLS já ligado; sem acesso para `anon`).
+- KPIs: `argos_ml_analise(animal, inicio, fim, periodo)` é `security invoker`, executável só por
+  `authenticated`, e devolve o JSON `AnaliseML` de `shared/ml.ts`. Localizações sem proveniência
+  (por exemplo as gravadas pelo `iot/`) não entram nos KPIs.
+
+Teste isolado: `cd supabase/testes; pnpm install --ignore-workspace; node --test ml.test.mjs` (PGlite, aplica
+todas as migrations com `pg_cron` simulado). Para o teste ponta a ponta com Python, defina
+`ARGOS_TEST_PYTHON` com o Python do `ml/.venv`.
