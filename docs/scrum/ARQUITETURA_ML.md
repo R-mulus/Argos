@@ -1,5 +1,12 @@
 # Arquitetura ML
 
+23/11/2026: `academic_demo` exige autorização explícita, origem experimental e hash de calibração
+compatível. `production` continua padrão e exige calibração validada. Datasets/modelos não são
+promovidos entre modos. Modelo demo mantém approved=false e status demo_approved; worker em
+produção o rejeita. Metadados públicos persistidos em argos_modelos_ml; Express usa apenas
+Supabase/JWT, RPC e tabelas. Treino é comando separado; inferência é contínua após reinício do
+worker configurado. Frontend e banco não iniciam processos IoT/ML. Outbox conserva origens incompatíveis.
+
 Atualização 22/11/2026: banco é a fronteira obrigatória. Após persistência, KPIs são calculados
 por `public.argos_ml_analise` SECURITY INVOKER e consumidos com JWT do usuário. API não executa
 Python; frontend não calcula KPIs nem depende dos workers. Funções Python de KPI ficam como

@@ -32,10 +32,22 @@ export function listarDadosIoT(table: 'argos_localizacoes' | 'argos_predicoes' |
     if (!coordinates && req.query.animal_id !== undefined) {
       query = query.eq('animal_id', uuidParam(req.query.animal_id, 'animal_id'));
     }
+    if(!coordinates) {
+      for(const [parameter,operator] of [['inicio','gte'],['fim','lt']] as const) {
+        const value=req.query[parameter];
+        if(value!==undefined) {
+          if(typeof value!=='string'||!/T.*(Z|[+-]\d{2}:\d{2})$/.test(value)||!Number.isFinite(Date.parse(value)))
+            throw new ApiError(400,'Data ISO com fuso obrigatória.');
+          query=query[operator]('observado_em',new Date(value).toISOString());
+        }
+      }
+      if(typeof req.query.inicio==='string'&&typeof req.query.fim==='string'&&Date.parse(req.query.inicio)>=Date.parse(req.query.fim))
+        throw new ApiError(400,'Intervalo inválido.');
+    }
     query = coordinates ? query.order('receptor_id') : query
       .order('observado_em', { ascending: false, nullsFirst: false }).order('id');
     const { data, count, error } = await query.range(offset, offset + limit - 1);
-    if (error) throw error;
+    if (error) throw new ApiError(503,'Histórico indisponível.','IOT_DATABASE_UNAVAILABLE');
     res.json({ data, count, limit, offset, consultado_em: new Date().toISOString() });
   };
 }

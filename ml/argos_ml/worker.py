@@ -27,11 +27,16 @@ class Outbox:
             self.conn.execute('INSERT OR REPLACE INTO predictions VALUES (?,?)',
                               (prediction['id'],json.dumps(prediction,allow_nan=False)))
 
-    def flush(self, db):
+    def flush(self, db, allowed_origin=None):
         failure = None
-        for identifier,payload in self.conn.execute('SELECT id,payload FROM predictions ORDER BY id LIMIT 50').fetchall():
+        pending=self.conn.execute("SELECT id,payload FROM predictions WHERE json_extract(payload,'$.propriedade_id')=? "
+            "AND (? IS NULL OR json_extract(payload,'$.origem')=?) ORDER BY id LIMIT 50",
+            (db.property_id,allowed_origin,allowed_origin)).fetchall()
+        for identifier,payload in pending:
             row = json.loads(payload)
             if row['propriedade_id'] != db.property_id:
+                continue
+            if allowed_origin is not None and row.get('origem')!=allowed_origin:
                 continue
             try:
                 db.upsert('argos_predicoes',row,'propriedade_id,animal_id,evento_id,modelo_versao')
@@ -65,7 +70,7 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
         return 'localizavel_sem_gravar'
     reference = operational_reference(coordinates, db.property_id)
     position.update(referencial_versao=reference['version'],
-                    calibracao_sha256=reference['calibration_sha256'], origem='real')
+                    calibracao_sha256=reference['calibration_sha256'], origem=reference.get('origin','real'))
     db.upsert('argos_localizacoes',position,'propriedade_id,transmissor_id,evento_id')
     logging.info('localizacao_qualidade: %s',json.dumps({'rms_m':position['erro_residual_m'],
         'receptores':position['receptores_utilizados']}))
@@ -112,12 +117,26 @@ def _poll(db, write, once):
     logging.info('modelos: %s',[p.status for p in predictors])
     outbox = Outbox(os.getenv('ARGOS_STATE_PATH','data/state.sqlite')) if write else None
     stop = threading.Event()
+    registered = set()
     for sig in (signal.SIGINT,signal.SIGTERM):
         signal.signal(sig,lambda *_: stop.set())
     while not stop.is_set():
         started = time.perf_counter()
         counts = Counter()
         try:
+            if write:
+                for predictor in predictors:
+                    if predictor.model is None or predictor.meta.get('property_id')!=db.property_id:
+                        continue
+                    m=predictor.meta
+                    key=(m['task'],m['model_version'])
+                    if key not in registered:
+                        try:
+                            from .model_registry import public_metadata
+                            db.upsert('argos_modelos_ml',public_metadata(m),'propriedade_id,task,model_version')
+                            registered.add(key)
+                        except DatabaseError:
+                            logging.warning('metadados_modelo_pendentes_verifique_migration')
             coordinates = None
             links_by_tx = {}
             for job in db.jobs(datetime.now(timezone.utc).isoformat()):
@@ -145,7 +164,8 @@ def _poll(db, write, once):
                             (datetime.now(timezone.utc)+timedelta(seconds=min(300,2**min(attempts,8)))).isoformat()})
             if outbox:
                 try:
-                    outbox.flush(db)
+                    from .provenance import execution_mode
+                    outbox.flush(db,'experimental' if execution_mode()=='academic_demo' else 'real')
                 except DatabaseError:
                     logging.warning('predicoes_preservadas_na_outbox_verifique_schema_e_conexao')
         except DatabaseError:

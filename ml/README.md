@@ -1,5 +1,13 @@
 # Argos — localização RSSI e GRU em CPU
 
+**MVP acadêmico — 23/11/2026:** agora existe `ARGOS_EXECUTION_MODE=academic_demo`, autorizado
+explicitamente por `ARGOS_DEMO_AUTHORIZED=1`, com origem experimental e hash conferido.
+Não exige calibração física certificada, mas exige referencial consistente e escrita opt-in.
+`approve-demo` aprova apenas demonstração; `approve` continua exclusivo para produção.
+`collection-report` acompanha a coleta sem gravar dados. Consulte o
+[guia de execução](../docs/operacao/EXECUTAR_MVP.md) para comandos e migrations necessárias.
+Treino físico de 24 h não foi realizado nesta entrega; testes usam fixtures isoladas.
+
 **Atualização 22/11/2026:** a integração oficial de KPIs agora é a
 [RPC PostgreSQL](docs/CONTRATO_SQL.md), sem Python por requisição. As duas migrations propostas
 devem ser revistas e aplicadas em staging antes de habilitar escrita nesta versão do ML.

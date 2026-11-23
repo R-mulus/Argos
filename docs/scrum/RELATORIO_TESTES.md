@@ -1,5 +1,27 @@
 # Relatório de testes por sprint
 
+## Finalização acadêmica — 23/11/2026
+
+- Python: 59 testes passaram, incluindo autorização acadêmica, trilateração experimental,
+  treino/approve-demo/inferência/outbox e dimensionamento ideal de 24 h (829/253/253 janelas).
+  35 avisos Keras/NumPy de depreciação, sem falhas funcionais.
+- PostgreSQL/PGlite: 9 testes passaram, incluindo GRU de fixture → previsão/metadados persistidos,
+  comportamento nulo, consulta RPC e RLS entre propriedades; SQL de todas as migrations aplicado
+  apenas em banco em memória. Auth.uid() de teste não valida assinatura JWT.
+- Express: typecheck aprovado, 27 testes passaram. Teste HTTP usa servidor Supabase simulado
+  para Auth/PostgREST, valida autenticação, propriedade, RPC, JSON, ausência de workers e erros 503.
+- Ingestor: build aprovado, 16 testes passaram; contrato MQTT, filas, deduplicação e avisos.
+- Firmware: 7 compilações passaram (TX/RX em ESP32, ESP32-C3, ESP32-S3 e RX TLS em ESP32).
+  Testes nativos de protocolo/HMAC, flash e NTP passaram. Nenhum upload/teste físico nesta etapa.
+
+Uma tentativa de pytest a partir da raiz falhou na importação de argos_ml; execução correta
+usa cwd `ml`, conforme o guia. Erros TypeScript de tipagem do JSON no novo teste HTTP foram
+corrigidos antes do typecheck final. Testes não escreveram no banco operacional.
+Não houve frontend editado, branch nova, merge, cherry-pick ou push nesta etapa.
+
+Comandos: `docs/operacao/EXECUTAR_MVP.md`. Coleta real e treinamento com ela ainda pendentes;
+a aprovação demo exercitada em fixtures temporárias não é um modelo pronto para coleta física.
+
 ## Continuação ML/SQL — 22/11/2026
 
 - `cd ml; python -m pytest tests -q`: 56 passaram, 28 avisos de depreciação Keras/NumPy,

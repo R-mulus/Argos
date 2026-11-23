@@ -1,5 +1,8 @@
 # Ensaio físico do Argos (receptor ESP32 → tela)
 
+> **23/11/2026:** este roteiro é de 19/11 (worker do backend, `iot/`, canal 6). Para a apresentação use
+> `docs/operacao/APRESENTACAO.md`: `worker/`, `ml/`, `broker/` e firmware no canal 2.
+
 Roteiro para validar, na ordem do plano, uma leitura física até o dashboard: um receptor, recuperação
 offline, três receptores e o worker Python. Atualizado em 19/11/2026. Tudo aqui depende de hardware e
 ainda **não foi executado**; registre o resultado de cada etapa em `docs/iot/VALIDACAO.md`.

@@ -1,5 +1,11 @@
 # Product backlog — consolidação ML
 
+23/11/2026 — Entregue: modo acadêmico opt-in; coleta contínua experimental; diagnóstico de 24 h;
+aprovação demo/inferência; metadados no banco; APIs desacopladas; contrato e guia PowerShell.
+Pendentes operacionais: autorização/aplicação das 3 migrations propostas, coleta de 24 h,
+treino/avaliação do dataset físico, ativação da versão demo e validação do hardware/integração JWT.
+Não há modelo operacional aprovado nem promessa de precisão física. Frontend pertence ao colaborador.
+
 Atualização 22/11/2026: S3–S6 têm evidência técnica isolada; S7 entregue como migrations e RPC
 testadas, aguardando revisão/implantação autorizada. IoT ganhou avisos duráveis e recuperação
 NTP conservadora. S8 pertence ao integrador; S9/S10 ainda dependem de staging e aceite operacional.

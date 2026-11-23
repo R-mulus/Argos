@@ -28,15 +28,17 @@ def main():
     train.add_argument('--task',choices=['position','behavior'],default='position')
     train.add_argument('--steps',type=int); train.add_argument('--interval-s',type=int)
     train.add_argument('--horizon-s',type=int); train.add_argument('--epochs',type=int,default=50)
-    for name in ('evaluate','approve','infer'):
+    for name in ('evaluate','approve','approve-demo','infer'):
         cmd = sub.add_parser(name); cmd.add_argument('--model',required=True)
-        if name=='approve': cmd.add_argument('--reviewer',required=True)
+        if name in ('approve','approve-demo'): cmd.add_argument('--reviewer',required=True)
         if name=='infer': cmd.add_argument('--dataset',required=True)
     k = sub.add_parser('kpis'); k.add_argument('--animal',required=True)
     k.add_argument('--since',required=True); k.add_argument('--until',required=True)
     k.add_argument('--period',choices=['dia','semana','mes'],default='dia'); k.add_argument('--out',required=True)
     sub.add_parser('audit')
     sub.add_parser('reference')
+    report = sub.add_parser('collection-report')
+    report.add_argument('--since',required=True); report.add_argument('--until',required=True)
     backfill = sub.add_parser('requeue')
     backfill.add_argument('--since',required=True); backfill.add_argument('--until',required=True)
     args = p.parse_args()
@@ -59,6 +61,11 @@ def main():
     elif args.command=='approve':
         from .training import approve
         approve(args.model,args.reviewer)
+    elif args.command=='approve-demo':
+        from .training import approve_demo
+        m=approve_demo(args.model,args.reviewer)
+        print(json.dumps({'approval_status':m['approval_status'],'approved':m['approved'],
+                          'improves_baseline':m['improves_baseline']}))
     elif args.command=='evaluate':
         from .training import evaluate_saved
         print(json.dumps(evaluate_saved(args.model),indent=2))
@@ -109,6 +116,10 @@ def main():
         start,end=timestamp(args.since),timestamp(args.until)
         if not start or not end or start>=end: raise ValueError('periodo_invalido')
         db=Database.environment()
+        if args.command=='collection-report':
+            from .monitoring import collection_report
+            print(json.dumps(collection_report(db,start,end),indent=2))
+            return
         if args.command=='prepare':
             from .datasets import seal_dataset
             from .provenance import calibration_hash,operational_reference

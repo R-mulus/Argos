@@ -161,3 +161,13 @@ export function montarTrilha(estimativas: readonly LocalizacaoIoT[] | undefined,
     naoUsadas: avaliadas.filter(a => a.situacao === "salto_descartado" || a.situacao === "aguardando_confirmacao"),
   };
 }
+
+/**
+ * Último zoom com imagem pedida à Esri; acima dele o MapLibre amplia o último nível. Em área rural a
+ * Esri costuma ter foto só até o 17: no 18 e no 19 devolve um quadro "Map data not yet available"
+ * (HTTP 200), e o mapa mostraria esse aviso. Ajustável por VITE_MAPA_SATELITE_ZOOM_MAX (1 a 19).
+ */
+export function zoomMaximoSatelite(valor: string | undefined): number {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero >= 1 && numero <= 19 ? numero : 17;
+}

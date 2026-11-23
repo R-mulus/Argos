@@ -73,6 +73,26 @@ coleira; 462 com `detectado_em`, 462 com vínculo, **0 com zona**. `argos_iot_jo
 10. **Geometria da GRU.** A verificação de geometria feita em `iot/` (19/11) fica obsoleta se `ml/`
     substituir `iot/`: o `ml/` já recusa inferência com referencial incompatível.
 
+## 2.0 Pacote Argos-IoT do Larápio (23/11/2026, branch `integracao/ml-academico`)
+
+Recebido como RAR da pasta de trabalho dele (não estava no GitHub). Trazido: `ml/argos_ml` (novos
+`model_registry.py` e `monitoring.py`; ajustes em `cli`, `inference`, `provenance`, `training`, `worker`),
+`ml/tests/test_academic.py`, `ml/README.md`, `ml/.env.example`, `ml/docs/CONTRATO_SQL.md`, backend de ML
+(`ml.controller.ts`, `ml.service.ts`, filtros por período e erro 503 em `iot.controller.ts`, `ml-http.test.ts`),
+`shared/ml.ts`, a migration de modelos (versão aplicada `20261123171004`), `docs/integracao/CONTRATO_BACKEND_FRONTEND.md`,
+`docs/operacao/EXECUTAR_MVP.md`, `docs/scrum/` e `monitor-demo/`. Removido `backend/tests/ml.test.ts`, substituído
+por `ml-http.test.ts`.
+
+Não trazido: credenciais (`.env`, `ArgosSecrets.h`, `ArgosDevice.local.h`, `broker/private/`), dados e estado local
+(`ml/data/`, `worker/data/`), o modelo treinado `ml/model/artifacts/posicao-piloto-v1` (ignorado pelo Git; fica na
+máquina que roda o ML), o frontend antigo do pacote e os scripts avulsos `ml/corrigir_amostra_gru.py`,
+`ml/diagnostico_aprovacao.py` e `ml/teste_inferencia_gru.py` (caminhos fixos da máquina dele).
+
+Estado no Supabase em 23/11: 1.963 detecções do ensaio das 15:42–17:03 (1.957 com zona), 744 localizações
+`experimental/curral-demo-v1` e 381 previsões do `posicao-piloto-v1` (comportamento nulo). O modelo foi treinado
+com 99 amostras e **não supera a referência de persistência** (MAE 0,93 m contra 0,65 m): é demonstração técnica.
+Coordenadas dos receptores ainda são as de teste, sem calibração medida.
+
 ## 2.1 Integração seletiva feita em 22/11/2026 (branch `integracao/ml-backend-iot`)
 
 Trazidos da `backend-iot` sem alterar o conteúdo: `ml/`, `worker/`, `broker/`, `firmware/` (inteiro),

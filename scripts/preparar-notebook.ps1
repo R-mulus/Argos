@@ -105,9 +105,9 @@ if ($redes.Count -gt 0) {
 Titulo 'Broker EMQX'
 if (Get-Command docker -ErrorAction SilentlyContinue) {
   $ErrorActionPreference = 'Continue'   # docker escreve avisos no stderr
-  $emqx = docker ps --filter 'name=^argos-emqx$' --format '{{.Status}}' 2>$null
+  $emqx = docker ps --filter 'publish=1883' --format '{{.Names}} {{.Status}}' 2>$null
   $ErrorActionPreference = 'Stop'
-  if ($emqx) { Ok "argos-emqx: $emqx" } else { Aviso 'argos-emqx não está rodando: docker compose up -d emqx (ou scripts\iniciar-argos.ps1)' }
+  if ($emqx) { Ok "broker na porta 1883: $emqx" } else { Aviso 'nenhum broker publicando a 1883: scripts\iniciar-argos.ps1 -SomenteIoT' }
 } else {
   Aviso 'Docker não encontrado no PATH (abra o Docker Desktop).'
 }

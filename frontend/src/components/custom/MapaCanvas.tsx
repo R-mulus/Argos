@@ -12,6 +12,7 @@ import { SatelliteDish } from "lucide-react";
 import { cn } from "cn";
 import type { ReferenciaEspacial } from "@argos/shared";
 import type { AnimalMapa, DadosMapa, ReceptorMapa, TrilhaMapa, ZonaMapa } from "@/lib/mapa";
+import { zoomMaximoSatelite } from "@/lib/mapa";
 import { limites, passoGrade, type LngLat, type Projecao } from "@/lib/referenciaEspacial";
 import { DetalheAnimalMapa, DetalheReceptorMapa } from "@/components/custom/DetalhesMapa";
 
@@ -77,7 +78,8 @@ export function estiloBase(projecao: Projecao, referencia: ReferenciaEspacial | 
     return {
       version: 8,
       sources: {
-        satelite: { type: "raster", tiles: [TILES_SATELITE], tileSize: 256, maxzoom: 18, attribution: ATRIBUICAO_SATELITE },
+        satelite: { type: "raster", tiles: [TILES_SATELITE], tileSize: 256,
+          maxzoom: zoomMaximoSatelite(import.meta.env.VITE_MAPA_SATELITE_ZOOM_MAX), attribution: ATRIBUICAO_SATELITE },
       },
       layers: [{ ...fundo, paint: { "background-color": "#3F4A33" } }, { id: "base-satelite", type: "raster", source: "satelite" }],
     };

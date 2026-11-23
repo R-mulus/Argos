@@ -66,7 +66,12 @@ são exibidos nem tratados como GPS.
 **Imagem de satélite:** Esri World Imagery (`server.arcgisonline.com`), com a atribuição "Powered by
 Esri · Esri, Maxar, Earthstar Geographics e GIS User Community". Serve para uso não comercial, como este
 projeto acadêmico. Para uso comercial ou contínuo, use um provedor com chave (ArcGIS Location
-Platform, MapTiler) em `VITE_MAPA_ESTILO_URL`. A Drawing Library e os tiles do Google Maps não são usados.
+Platform, MapTiler) em `VITE_MAPA_ESTILO_URL`.
+
+**Zoom do satélite:** a Esri só tem foto até certo zoom em cada região. Na origem cadastrada em 18/11
+(-14,2362, -44,6287), há imagem até o zoom 17; no 18 e no 19 o servidor devolve, com HTTP 200, um quadro
+"Map data not yet available" (verificado em 23/11 pelo serviço `tilemap` da Esri). Por isso o mapa pede
+imagem até `VITE_MAPA_SATELITE_ZOOM_MAX` (padrão 17) e amplia o último nível acima disso. A Drawing Library e os tiles do Google Maps não são usados.
 
 **Visual (Figma "Estado área 1"):** zona em foco com contorno laranja e preenchimento quase
 transparente; outras zonas com contorno branco tracejado; receptores e animais em círculos brancos

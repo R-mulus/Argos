@@ -61,3 +61,6 @@ ml/data/
 ml/model/artifacts/
 ml/test-artifacts/
 ml/.pytest-tmp/
+# Pacotes compactados trocados entre a equipe podem conter credenciais
+*.rar
+*.zip
