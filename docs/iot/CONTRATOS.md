@@ -11,7 +11,7 @@ Tópico ASCII, sem acento:
 
 Use UUIDs válidos, QoS1 e `retain=false`. Repetições do mesmo beacon em todos os receptores compartilham `evento_id`; não gerar ID aleatório em cada receptor. O pacote ESP-NOW é v2 binário; o JSON MQTT continua v1. O broker deve restringir cada usuário ao tópico exato de seu receptor. HMAC protege o beacon com segredo por propriedade, mas não cifra o broadcast e não fornece relógio seguro contra replay de um evento ainda desconhecido. Dispositivos provisionados com mesmo segredo são uma mesma fronteira de confiança.
 
-`detectado_em` é a hora da recepção no ESP32, não a hora do upload. Sem NTP válido será `null`; o backend preserva a detecção para diagnóstico sem atribuir vínculo/zona atuais. `recebido_no_gateway_em` continua registrando a chegada ao worker e `recebido_em` a chegada ao PostgreSQL. Bateria permanece nula até instalar/calibrar medição real.
+`detectado_em` é a hora da recepção no ESP32, não a hora do upload. Sem NTP válido será `null`; o backend preserva a detecção para diagnóstico sem atribuir vínculo/zona. O receptor (19/11/2026) retém as leituras feitas antes do NTP e, quando o relógio sincroniza no mesmo boot, envia o horário real calculado pelo relógio monotônico; só leituras de um boot anterior ou após `ARGOS_TIME_WAIT_S` seguem com `null`. Leitura atrasada (fila do receptor ou do gateway) recebe vínculo pelo instante observado e zona quando a zona não foi alterada depois da detecção (`zonas.updated_at <= detectado_em`). `recebido_no_gateway_em` continua registrando a chegada ao worker e `recebido_em` a chegada ao PostgreSQL. Bateria permanece nula até instalar/calibrar medição real.
 
 ## API Express nova
 
@@ -23,6 +23,9 @@ Todas as rotas exigem `Authorization: Bearer <JWT Supabase>` e a propriedade é 
 | `GET /api/iot/receptores/coordenadas` | Coordenadas/calibração cadastradas |
 | `GET /api/iot/localizacoes?animal_id=UUID&limit=20&offset=0` | Histórico RSSI, mais novo por horário de observação primeiro |
 | `GET /api/iot/predicoes?animal_id=UUID&limit=20&offset=0` | Posição atual GRU, futura, horário alvo e probabilidades |
+| `GET /api/iot/localizacoes/recentes` | Até 5 estimativas por animal, com `recebido_em` (view `argos_localizacoes_recentes`); usada pelo mapa |
+| `GET/PUT /api/iot/referencia-espacial` | Origem geográfica ou planta em metros da propriedade (ver `docs/MAPA.md`) |
+| `GET /api/iot/zonas/geometrias`, `PUT/DELETE /api/iot/zonas/:id/geometria` | Contorno das zonas em metros locais |
 
 Listagens retornam `{data,count,limit,offset,consultado_em}`. `limit` entre 1 e 100. `animal_id` opcional; sem filtro lista a propriedade. PUT retorna `{data}`. Tipos `LocalizacaoIoT` e `PredicaoIoT` disponíveis em `@argos/shared`. Posição em metros relativos à origem cadastrada, não latitude/longitude. Para posição atual de um animal, consulte `localizacoes?animal_id=...&limit=1`. Verifique `observado_em`; horário do processamento não renova dado antigo. Para casar GRU e RSSI, compare `animal_id` e `evento_id`; não unir simplesmente os primeiros registros de consultas diferentes.
 

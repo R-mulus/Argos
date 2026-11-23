@@ -3,6 +3,30 @@ import json
 from pathlib import Path
 import numpy as np
 
+# Tolerâncias para considerar a instalação atual igual à do treinamento.
+TOLERANCIA_POSICAO_M = 0.5
+TOLERANCIA_CALIBRACAO = 0.01
+CAMPOS_GEOMETRIA = ('x_m', 'y_m', 'rssi_1m_dbm', 'expoente_perda')
+
+
+def geometria_compativel(esperada, atual):
+    """True se cada receptor do modelo existe hoje com a mesma posição e calibração.
+
+    As features usam RSSI por receptor e a posição RSSI calculada com essa geometria; mover um
+    receptor ou recalibrá-lo muda o significado das entradas e exige novo treino.
+    """
+    if not esperada or not atual:
+        return False
+    for receptor, ref in esperada.items():
+        hoje = atual.get(str(receptor))
+        if hoje is None:
+            return False
+        for campo in CAMPOS_GEOMETRIA:
+            tolerancia = TOLERANCIA_POSICAO_M if campo in ('x_m', 'y_m') else TOLERANCIA_CALIBRACAO
+            if abs(float(hoje[campo]) - float(ref[campo])) > tolerancia:
+                return False
+    return True
+
 
 class ModeloGRU:
     def __init__(self, directory):
@@ -14,7 +38,11 @@ class ModeloGRU:
         path = Path(directory)
         self.meta = json.loads((path / 'metadata.json').read_text())
         m = self.meta
-        if m.get('schema_version') != 2 or not m.get('aprovado'):
+        if m.get('schema_version') != 3:
+            # Versões anteriores não registravam a geometria do treino: não há como conferir.
+            self.status = 'sem_geometria'
+            return
+        if not m.get('aprovado'):
             self.status = 'nao_aprovado'
             return
         if not 2 <= m['steps'] <= 256 or not 1 <= m['interval_s'] <= 3600:
@@ -28,13 +56,19 @@ class ModeloGRU:
                 raise ValueError('Normalização GRU inválida')
             if key.endswith('std') and np.any(values <= 0):
                 raise ValueError('Escala GRU inválida')
+        geometria = m.get('geometria') or {}
+        if set(geometria) != set(m['receivers']) or not all(
+                np.isfinite([float(g[c]) for c in CAMPOS_GEOMETRIA]).all() for g in geometria.values()):
+            raise ValueError('Geometria GRU ausente ou incompleta')
         import tensorflow as tf
         self.model = tf.keras.models.load_model(path / 'argos_gru.keras', compile=False)
         self.status = 'disponivel'
 
-    def predict(self, history, property_id):
+    def predict(self, history, property_id, geometria=None):
         m = self.meta
         if self.model is None or str(property_id) != m['property_id']:
+            return None
+        if 'geometria' in m and not geometria_compativel(m['geometria'], geometria):
             return None
         history = history[-m['steps']:]
         if len(history) != m['steps']:

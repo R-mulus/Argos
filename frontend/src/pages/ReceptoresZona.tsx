@@ -5,7 +5,7 @@ import type { ComunicacaoReceptor } from "@argos/shared";
 import { AnalisesModelo } from "@/components/custom/AnalisesModelo";
 import { CabecalhoZona } from "@/components/custom/CabecalhoZona";
 import { AvisoAntigo, EstadoBloco, Secao } from "@/components/custom/EstadoConsulta";
-import { MapaIlustrativoZona } from "@/components/custom/MapaIlustrativoZona";
+import { MapaMonitoramento } from "@/components/custom/MapaMonitoramento";
 import { ReceptorCard } from "@/components/custom/ReceptorCard";
 import { ReceptorResumoCard } from "@/components/custom/ResumoReceptorCard";
 import { ResumoZona } from "@/components/custom/ResumoZona";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAgora, usePeriodo, useZonaMonitorada } from "@/hooks/useMonitoramento";
 import { fonteDemonstracao, type CenarioDemonstracao } from "@/lib/demonstracaoMonitoramento";
+import { espacialApi, espacialDemonstracao } from "@/lib/espacial";
 import { chaveMonitoramento, fonteApi } from "@/lib/fonteMonitoramento";
 import { LIMITE_LINHAS, buscarHistoricoCompleto, metricasReceptor } from "@/lib/historico";
 import { ATUALIZACAO_MS, RECENCIA_MS } from "@/lib/monitoramento";
@@ -32,6 +33,7 @@ function mensagemReceptor(receptor: ComunicacaoReceptor, temZona: boolean, parci
 /** Tela Receptores: banner e mapa da zona escolhida; cards de todos os receptores da propriedade. */
 export default function ReceptoresZona({ demonstracao }: { demonstracao?: CenarioDemonstracao }) {
   const fonte = useMemo(() => (demonstracao ? fonteDemonstracao(demonstracao) : fonteApi), [demonstracao]);
+  const fonteEspacial = useMemo(() => (demonstracao ? espacialDemonstracao(demonstracao) : espacialApi), [demonstracao]);
   const origem = demonstracao ?? "api";
   const [parametros, setParametros] = useSearchParams();
   const periodo = usePeriodo();
@@ -95,8 +97,14 @@ export default function ReceptoresZona({ demonstracao }: { demonstracao?: Cenari
     detalhesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Seleção no mapa: destaca o card e abre a página dele, sem rolar a tela para longe do mapa.
+  function selecionarNoMapa(id: string | null) {
+    setSelecionado(id);
+    const indice = id ? lista.findIndex(r => r.id === id) : -1;
+    if (indice >= 0) setPagina(Math.floor(indice / POR_PAGINA));
+  }
+
   const resumidos = lista.length > POR_PAGINA;
-  const receptorDaZona = lista.find(r => r.id === indicadores?.receptorId) ?? null;
 
   return (
     <div className="mx-auto w-full max-w-[1786px] min-w-0 pt-8 pb-16 lg:pt-[64px] [&_[data-slot=card]]:ring-foreground/30">
@@ -188,15 +196,30 @@ export default function ReceptoresZona({ demonstracao }: { demonstracao?: Cenari
         </div>
       </section>
 
-      {zona && (
-        <Secao titulo="Análise Geral" id="mapa-receptores" className="mt-12 lg:mt-[50px]">
-          <MapaIlustrativoZona
-            nomeZona={zona.nome}
-            animaisNaZona={zona.quantidade}
-            receptor={receptorDaZona ? { nome: receptorDaZona.nome ?? receptorDaZona.codigo, comunicacaoRecente: receptorDaZona.estado_comunicacao === "recente" } : null}
-          />
-        </Secao>
-      )}
+      <Secao
+        titulo="Mapa dos Receptores"
+        id="mapa-receptores"
+        className="mt-12 lg:mt-[50px]"
+        extra={selecionado && lista.some(r => r.id === selecionado) ? (
+          <Button variant="outline" className="rounded-full border-2" onClick={() => detalhesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            Ver card de {lista.find(r => r.id === selecionado)!.nome ?? lista.find(r => r.id === selecionado)!.codigo}
+          </Button>
+        ) : undefined}
+      >
+        <MapaMonitoramento
+          fonte={fonteEspacial}
+          origem={origem}
+          demonstracao={demonstracao}
+          resumo={dadosResumo}
+          comunicacao={receptores.data?.data}
+          zonasCadastro={zonas.data?.data}
+          zonaFocoId={zona?.id ?? null}
+          foco="receptores"
+          agora={agora}
+          receptorSelecionado={selecionado}
+          aoSelecionarReceptor={selecionarNoMapa}
+        />
+      </Secao>
     </div>
   );
 }

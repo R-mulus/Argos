@@ -3,6 +3,7 @@
 #
 #   docker compose up -d emqx
 #
+# Configuração do broker em uso e migração do container manual: docs/iot/BROKER.md.
 # O nome argos-emqx é o que a tarefa "Docker + EMQX" do VS Code inicia. Se já existir um container
 # argos-emqx criado à mão, exporte antes usuários/ACL configurados nele: `docker compose up` não o
 # substitui sozinho (remova-o com `docker rm -f argos-emqx` só depois de exportar a configuração).
@@ -18,6 +19,10 @@ services:
     image: emqx/emqx-enterprise:6.3.2
     container_name: argos-emqx
     restart: unless-stopped
+    environment:
+      # Publicação negada pela ACL desconecta o receptor em vez de ser descartada em silêncio:
+      # no MQTT 3.1.1 o PUBACK não informa recusa e o ESP32 apagaria a leitura da fila.
+      EMQX_AUTHORIZATION__DENY_ACTION: disconnect
     ports:
       - "1883:1883"
       - "8883:8883"

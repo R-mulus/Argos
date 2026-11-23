@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Icon } from "lucide-react"
 import { cowHead } from "@lucide/lab"
 import { Cell, Pie, PieChart } from "recharts"
@@ -24,6 +25,10 @@ export type QuantidadeCabecasProps = {
   /** Quantidade por setor, preparada para futura resposta da API. */
   dados: SetorCabecas[]
   recentesSemZona?: number
+  /** Aviso contextual exibido quando nenhum animal foi contabilizado. */
+  aviso?: ReactNode
+  /** Título do card. */
+  titulo?: string
   className?: string
 }
 
@@ -118,6 +123,8 @@ function RotuloDaFatia({
 export function QuantidadeCabecas({
   dados,
   recentesSemZona = 0,
+  aviso,
+  titulo = "Quantidade de Cabeças",
   className,
 }: QuantidadeCabecasProps) {
   // A API deve enviar cada animal atribuído a um único setor por contabilização.
@@ -148,7 +155,7 @@ export function QuantidadeCabecas({
     >
       <CardHeader className="px-4 @min-[500px]:px-6">
         <CardTitle className="text-base leading-tight font-normal @min-[430px]:text-xl @min-[700px]:text-2xl">
-          Quantidade de Cabeças
+          {titulo}
         </CardTitle>
       </CardHeader>
 
@@ -208,7 +215,7 @@ export function QuantidadeCabecas({
               </ChartContainer>
             ) : (
               <div className="flex size-[220px] items-center justify-center rounded-full border border-dashed border-border text-center text-xs text-muted-foreground @min-[430px]:size-[300px] @min-[560px]:size-[240px] @min-[760px]:size-[300px]">
-                Nenhum animal contabilizado
+                {aviso ? "Sem animais nas zonas" : "Nenhum animal contabilizado"}
               </div>
             )}
           </div>
@@ -247,6 +254,7 @@ export function QuantidadeCabecas({
             </ul>
           </div>
         </div>
+        {total === 0 && aviso && <div className="mt-4">{aviso}</div>}
       </CardContent>
     </Card>
   )

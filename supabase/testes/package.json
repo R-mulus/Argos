@@ -1,0 +1,8 @@
+{
+	"name": "argos-sql-isolated-tests",
+	"private": true,
+	"scripts": { "test": "node --test ml.test.mjs" },
+	"devDependencies": {
+		"@electric-sql/pglite": "0.5.17"
+	}
+}

@@ -113,3 +113,15 @@ Para instalar dependências do frontend, certifique-se de estar dentro da pasta 
 1. Abra a pasta backend do projeto (como ```Argos/backend```)
 2. Rode o comando de instalação (ex: ```pnpm i <biblioteca>```)
 3. Pronto
+
+## Módulos de IoT e ML
+
+| Pasta | Conteúdo | Responsável |
+|---|---|---|
+| `firmware/` | Coleira e receptor ESP32 (ESP-NOW → MQTT) | Equipe IoT |
+| `worker/` | Worker de ingestão MQTT → Supabase (Node 24) | Larápio |
+| `ml/` | Trilateração, datasets, GRUs, inferência e KPIs de referência | Larápio |
+| `broker/` | EMQX com autenticação e ACL por dispositivo | Larápio |
+| `backend/`, `frontend/`, `shared/` | API Express, telas React e contratos | Mateus |
+
+Integração entre ML e aplicação: [docs/integracao/ML_BACKEND.md](docs/integracao/ML_BACKEND.md). Ensaio físico: [docs/iot/ENSAIO.md](docs/iot/ENSAIO.md).

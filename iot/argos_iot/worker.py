@@ -75,7 +75,10 @@ def infer(conn, model, key, position):
     history.reverse()
     if not history or history[-1]['evento_id'] != key[2]:
         return
-    result = model.predict(history, key[0])
+    geometria = {str(r['receptor_id']): r for r in conn.execute(
+        """SELECT receptor_id,x_m,y_m,rssi_1m_dbm,expoente_perda FROM public.argos_posicoes_receptores
+        WHERE propriedade_id=%s""", (key[0],)).fetchall()}
+    result = model.predict(history, key[0], geometria)
     if not result:
         return
     identifier = uuid5(NAMESPACE_URL, ':'.join(map(str, (*key, result['modelo_versao']))))

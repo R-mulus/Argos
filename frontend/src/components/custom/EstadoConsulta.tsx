@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
+import { AvisoEstado } from "@/components/custom/AvisoEstado";
 import { Card } from "@/components/ui/card";
 
 /** Sem atualização concluída há mais de 90 s (três ciclos de 30 s), os dados são tratados como antigos. */
@@ -22,10 +22,14 @@ export function EstadoBloco({ consulta, nome, className = "" }: { consulta: Cons
   if (consulta.data !== undefined) return null;
   if (consulta.isError) {
     return (
-      <Card className={`gap-3 p-5 ${className}`}>
-        <p role="alert">Não foi possível carregar {nome}: {consulta.error?.message}</p>
-        <Button variant="outline" className="self-start" disabled={consulta.isFetching} onClick={() => void consulta.refetch()}>Tentar novamente</Button>
-      </Card>
+      <AvisoEstado
+        tom="erro"
+        titulo={`Não foi possível carregar ${nome}`}
+        acao={{ rotulo: "Tentar novamente", aoClicar: () => void consulta.refetch(), desabilitada: consulta.isFetching }}
+        className={className}
+      >
+        {consulta.error?.message}
+      </AvisoEstado>
     );
   }
   return <Card className={`p-6 ${className}`}><p role="status" className="text-muted-foreground">Carregando {nome}…</p></Card>;

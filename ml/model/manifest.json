@@ -1,0 +1,7 @@
+{
+  "model_version": "gru-v1",
+  "approved": false,
+  "training_samples": 0,
+  "prediction_horizon_minutes": 5,
+  "evaluation": null
+}

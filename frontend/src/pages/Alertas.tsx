@@ -93,7 +93,7 @@ export default function Alertas({ demonstracao }: { demonstracao?: CenarioDemons
       <Secao
         titulo="Avisos"
         id="avisos"
-        className="mt-12 lg:mt-[106px]"
+        className="mt-10 lg:mt-14"
         extra={lista.data && total > 0 && (
           <p className="text-sm text-muted-foreground">
             {total.toLocaleString("pt-BR")} {total === 1 ? "aviso" : "avisos"} · do mais recente ao mais antigo
@@ -104,7 +104,7 @@ export default function Alertas({ demonstracao }: { demonstracao?: CenarioDemons
         {lista.data && (lista.data.data.length === 0
           ? <Card className="p-6 text-muted-foreground">{vazioPorFiltro[filtro]}</Card>
           : (
-            <ul className={`grid gap-4 transition-opacity xl:gap-5 ${lista.isPlaceholderData ? "opacity-60" : ""}`} aria-busy={lista.isFetching}>
+            <ul className={`grid gap-3 transition-opacity xl:gap-4 ${lista.isPlaceholderData ? "opacity-60" : ""}`} aria-busy={lista.isFetching}>
               {lista.data.data.map(alerta => (
                 <li key={alerta.id}>
                   <ItemAlerta

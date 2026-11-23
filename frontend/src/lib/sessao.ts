@@ -44,11 +44,12 @@ export async function baixarDaApi(caminho: string, signal?: AbortSignal): Promis
 }
 
 /** POST ou PATCH com corpo JSON; devolve o JSON da resposta. */
-export async function enviarApi<T>(caminho: string, metodo: "POST" | "PATCH", corpo: unknown): Promise<T> {
-	const resposta = await requisitarApi(caminho, undefined, {
+export async function enviarApi<T>(caminho: string, metodo: "POST" | "PATCH" | "PUT" | "DELETE", corpo?: unknown): Promise<T> {
+	const resposta = await requisitarApi(caminho, undefined, corpo === undefined ? { method: metodo } : {
 		method: metodo,
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(corpo),
 	});
-	return resposta.json();
+	// 204 (remoção) não tem corpo.
+	return resposta.status === 204 ? (undefined as T) : resposta.json();
 }

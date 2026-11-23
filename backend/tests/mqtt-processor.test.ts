@@ -25,9 +25,11 @@ class FakeRepo implements RepositorioDeteccoes {
     }
     return null;
   }
-  async buscarZonaAtiva(_p: string, _r: string) {
+  zonaAtualizadaEm = '2026-11-01T00:00:00Z';
+  async buscarZonaAtiva(_p: string, _r: string, instante: string) {
     this.zonaLookups++;
-    return { id: 'zona-1' };
+    // Mesmo critério do repositório real: zona alterada depois da detecção não vale para ela.
+    return Date.parse(this.zonaAtualizadaEm) <= Date.parse(instante) ? { id: 'zona-1' } : null;
   }
   async buscarVinculoNoInstante(_p: string, _t: string, _d: string) { return this.vinculo; }
   async inserirSeInedita(row: DetecaoPersistida) {
@@ -55,15 +57,22 @@ test('insere evento e preenche zona e vínculo corretos', async () => {
   assert.equal(await processarDeteccao(repo, evento), 'duplicada');
   assert.equal(repo.detecoes.length, 1);
 });
-test('replay antigo não inventa zona, mas recupera vínculo histórico', async () => {
+test('leitura atrasada da fila recebe zona e vínculo históricos, sem renovar comunicação', async () => {
   const repo = new FakeRepo();
   const antigo = { ...evento, detectadoEm: '2026-11-05T12:00:00.000Z' };
   repo.vinculo = { id: 'vinculo-antigo', inicio_em: '2026-11-01T00:00:00Z', fim_em: '2026-11-08T00:00:00Z' };
   assert.equal(await processarDeteccao(repo, antigo), 'gravada');
-  assert.equal(repo.detecoes[0].zona_id, null);
+  assert.equal(repo.detecoes[0].zona_id, 'zona-1');
   assert.equal(repo.detecoes[0].vinculo_id, 'vinculo-antigo');
-  assert.equal(repo.zonaLookups, 0);
+  assert.equal(repo.detecoes[0].detectado_em, antigo.detectadoEm);
   assert.deepEqual(repo.comunicações, [evento.receptorId]);
+});
+test('zona alterada depois da detecção não é atribuída à leitura atrasada', async () => {
+  const repo = new FakeRepo();
+  repo.zonaAtualizadaEm = '2026-11-10T00:00:00Z';
+  await processarDeteccao(repo, { ...evento, detectadoEm: '2026-11-05T12:00:00.000Z' });
+  assert.equal(repo.detecoes[0].zona_id, null);
+  assert.equal(repo.detecoes[0].vinculo_id, 'vinculo-1');
 });
 test('vínculo após o evento não pode ser atribuído retroativamente', async () => {
   const repo = new FakeRepo();
@@ -96,5 +105,6 @@ test('buffer sem relógio não assume animal, zona nem transmissão recente', as
   assert.equal(repo.detecoes[0].vinculo_id, null);
   assert.equal(repo.detecoes[0].zona_id, null);
   assert.equal(repo.detecoes[0].detectado_em, null);
+  assert.equal(repo.zonaLookups, 0);
   assert.deepEqual(repo.comunicações, [evento.receptorId]);
 });

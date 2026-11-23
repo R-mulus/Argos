@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +25,10 @@ export type ContabilizacaoCabecasMesProps = {
   rotulos?: { real: string; ideal?: string }
   /** Texto curto sob o título, explicando a origem dos números. */
   descricao?: string
+  /** Título do card. */
+  titulo?: string
+  /** Mostrado no lugar do gráfico quando não há meses com dados; o card mantém o espaço. */
+  aviso?: ReactNode
   className?: string
 }
 
@@ -61,8 +66,11 @@ export function ContabilizacaoCabecasMes({
   dados = dadosSimulados,
   rotulos = { real: "Real", ideal: "Ideal" },
   descricao,
+  titulo = "Contabilização de Cabeças Per/Mês",
+  aviso,
   className,
 }: ContabilizacaoCabecasMesProps) {
+  const semDados = dados.length === 0 && aviso !== undefined
   const comMeta = dados.some((registro) => registro.ideal != null)
   const configuracao = {
     real: { ...configuracaoGrafico.real, label: rotulos.real },
@@ -75,11 +83,11 @@ export function ContabilizacaoCabecasMes({
       <CardHeader className="px-4 @min-[650px]:px-7">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <CardTitle className="min-w-0 text-base leading-tight font-normal @min-[460px]:text-xl @min-[850px]:text-2xl">
-            Contabilização de Cabeças Per/Mês
+            {titulo}
           </CardTitle>
 
           {/* Legenda junto ao título, como no Figma. */}
-          <div className="flex shrink-0 items-center gap-3 text-xs @min-[550px]:gap-5 @min-[550px]:text-sm">
+          {!semDados && <div className="flex shrink-0 items-center gap-3 text-xs @min-[550px]:gap-5 @min-[550px]:text-sm">
             <span className="flex items-center gap-1.5 @min-[550px]:gap-2.5">
               <span aria-hidden="true" className="size-3 rounded-[3px] bg-primary @min-[550px]:size-6 @min-[850px]:size-7" />
               {rotulos.real}
@@ -90,12 +98,15 @@ export function ContabilizacaoCabecasMes({
                 {rotulos.ideal ?? "Ideal"}
               </span>
             )}
-          </div>
+          </div>}
         </div>
         {descricao && <p className="mt-1 text-xs text-muted-foreground @min-[650px]:text-sm">{descricao}</p>}
       </CardHeader>
 
       <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col px-2 @min-[650px]:px-5">
+        {semDados ? (
+          <div className="flex min-h-[200px] flex-1 items-center px-2 @min-[650px]:min-h-[230px]">{aviso}</div>
+        ) : (<>
         {/* O gráfico ocupa a altura que sobra no card (mesma linha do card ao lado).
             A largura mínima mantém os 12 meses legíveis em cards estreitos.
             O usuário pode rolar horizontalmente, inclusive por teclado. */}
@@ -164,6 +175,7 @@ export function ContabilizacaoCabecasMes({
             </BarChart>
           </ChartContainer>
         </div>
+      </>)}
       </CardContent>
     </Card>
   )

@@ -1,4 +1,9 @@
 import { listarDadosIoT, salvarCoordenadas } from './controllers/iot.controller.js';
+import { painelML } from './controllers/ml.controller.js';
+import {
+  listarGeometriasZonas, listarLocalizacoesRecentes, obterReferenciaEspacial, removerGeometriaZona,
+  salvarGeometriaZona, salvarReferenciaEspacial,
+} from './controllers/espacial.controller.js';
 import express from 'express';
 import { consultarPreviaRetencao } from './controllers/retencao.controller.js';
 import { listarAlertas, atualizarAlerta } from './controllers/alerta.controller.js';
@@ -40,9 +45,16 @@ export function createApp(config: Config) {
   app.get('/api/monitoramento/receptores', listarComunicacaoReceptores);
 
   app.get('/api/iot/localizacoes', listarDadosIoT('argos_localizacoes'));
+  app.get('/api/iot/analise', painelML);
   app.get('/api/iot/predicoes', listarDadosIoT('argos_predicoes'));
   app.get('/api/iot/receptores/coordenadas', listarDadosIoT('argos_posicoes_receptores'));
   app.put('/api/iot/receptores/coordenadas', salvarCoordenadas);
+  app.get('/api/iot/localizacoes/recentes', listarLocalizacoesRecentes);
+  app.get('/api/iot/referencia-espacial', obterReferenciaEspacial);
+  app.put('/api/iot/referencia-espacial', salvarReferenciaEspacial);
+  app.get('/api/iot/zonas/geometrias', listarGeometriasZonas);
+  app.put('/api/iot/zonas/:id/geometria', salvarGeometriaZona);
+  app.delete('/api/iot/zonas/:id/geometria', removerGeometriaZona);
 
   app.use(notFound);
   app.use(errorHandler);

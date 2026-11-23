@@ -75,12 +75,12 @@ propriedade_id,animal_id,timestamp,rssi_UUID_RX1,rssi_UUID_RX2,rssi_UUID_RX3,rss
 
 ```sh
 python -m argos_iot.train data/rotulos.csv --property UUID_PROPRIEDADE \
-  --receivers UUID_RX1 UUID_RX2 UUID_RX3 --steps 16 --interval 30 --out model
+  --receivers UUID_RX1 UUID_RX2 UUID_RX3 --geometry geometria.json --steps 16 --interval 30 --out model
 ```
 
 A separação temporal 60/20/20 descarta janelas que cruzam cortes; normalização vem apenas do treino. Validação controla early stopping, teste reporta MAE em metros, baseline RSSI, baseline de persistência e acurácia comportamental. Quantidade mínima do script é apenas teste técnico, não suficiência estatística. Faça também avaliação por animal/dia/condições não vistos e examine classes desbalanceadas.
 
-O manifesto nasce com `aprovado: false`. Antes de aprovação operacional, compare erro atual com RSSI e erro futuro com persistência em dados de campo; só marque `aprovado: true` após essa revisão. Configure `ARGOS_MODEL_DIR` e reinicie o processo; o modelo é carregado uma vez. Histórico insuficiente, outra propriedade, receptor ausente ou intervalo irregular devolve ausência de previsão. A posição RSSI permanece separada e consultável; inferência não a sobrescreve. Trocar geometria exige retreino/validação e nova versão. Não há modelo treinado para sua fazenda incluído nesta entrega.
+O manifesto nasce com `aprovado: false`. Antes de aprovação operacional, compare erro atual com RSSI e erro futuro com persistência em dados de campo; só marque `aprovado: true` após essa revisão. Configure `ARGOS_MODEL_DIR` e reinicie o processo; o modelo é carregado uma vez. Histórico insuficiente, outra propriedade, receptor ausente ou intervalo irregular devolve ausência de previsão. A posição RSSI permanece separada e consultável; inferência não a sobrescreve. Trocar geometria exige retreino/validação e nova versão. Desde 19/11/2026 o manifesto (`schema_version: 3`) grava a geometria do treino (`--geometry`: resposta de `GET /api/iot/receptores/coordenadas` do período das coletas) e o worker compara com `argos_posicoes_receptores` a cada inferência: receptor ausente, posição a mais de 0,5 m ou calibração diferente em mais de 0,01 resulta em ausência de previsão. Manifestos `schema_version: 2` não carregam (`sem_geometria`). Não há modelo treinado para sua fazenda incluído nesta entrega.
 
 ## Verificação
 
