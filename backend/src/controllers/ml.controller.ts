@@ -5,7 +5,8 @@ import { ApiError } from '../lib/http.js';
 import { uuidParam } from '../lib/validation.js';
 import { getAuth } from '../middlewares/auth.js';
 import { requirePropriedade } from '../services/propriedade.service.js';
-import { analyze, modelMetrics } from '../services/ml.service.js';
+import { modelMetrics } from '../services/ml.service.js';
+import type { AnaliseML } from '@argos/shared';
 
 export function mlFilter(query: Record<string, unknown>) {
   const animal = uuidParam(query.animal_id, 'animal_id');
@@ -23,7 +24,6 @@ export function mlFilter(query: Record<string, unknown>) {
 }
 
 interface Scoped { propriedade_id: string; animal_id: string | null }
-interface Label extends Scoped { observado_em: string; camera_id: string; comportamento: string; confianca: number }
 
 export async function readSeries<T extends Scoped>(db: SupabaseClient, table: string, propertyId: string, animal: string, start: string, end: string): Promise<T[]> {
   const rows: T[] = [];
@@ -53,19 +53,18 @@ export const painelML: RequestHandler = async (req, res) => {
     readSeries<PredicaoML>(auth.db, 'argos_predicoes', property.id, animal, start, end), modelMetrics(property.id),
   ]);
   const warnings: string[] = [];
-  let labels: Label[] = [];
-  try { labels = await readSeries<Label>(auth.db, 'argos_observacoes_visao', property.id, animal, extendedStart, extendedEnd); }
-  catch (error: unknown) {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '42501')
-      warnings.push('Rótulos observados não estão disponíveis para esta sessão.');
-    else throw error;
-  }
-  const analysis = await analyze({ propriedade_id: property.id, animal_id: animal, inicio: start, fim: end,
-    periodo: period, localizacoes: locations, rotulos: labels,
-    trusted_cameras: (process.env.ARGOS_TRUSTED_CAMERAS ?? '').split(',').map(v => v.trim()).filter(Boolean) });
+  // Contrato proposto à Sprint 7: implementação SQL SECURITY INVOKER, nunca fallback Python.
+  const { data: analysisData, error: analysisError } = await auth.db.rpc('argos_ml_analise', {
+    p_animal_id: animal, p_inicio: start, p_fim: end, p_periodo: period,
+  });
+  if (analysisError) throw new ApiError(503, 'KPIs SQL indisponíveis. Verifique a implantação da Sprint 7.', 'ML_SQL_UNAVAILABLE');
+  if (!analysisData || typeof analysisData !== 'object' || !('resumo' in analysisData)
+      || !('movimentacao' in analysisData) || !('comportamentos' in analysisData))
+    throw new ApiError(503, 'Contrato de KPIs SQL incompatível.', 'ML_SQL_CONTRACT');
+  const analysis = analysisData as AnaliseML;
   const source = process.env.ARGOS_DATA_ORIGIN === 'real' && process.env.ARGOS_CALIBRATION_VALIDATED === '1' ? 'real' : 'experimental';
   if (source === 'experimental') warnings.push('Referencial não validado: posições e indicadores são experimentais.');
-  const inPeriod = locations.filter(row => row.observado_em && row.observado_em >= start && row.observado_em < end);
+  const inPeriod = locations.filter(row => row.observado_em && Date.parse(row.observado_em) >= Date.parse(start) && Date.parse(row.observado_em) < Date.parse(end));
   // Histórico limitado para a visualização; KPIs consideram todas as páginas consultadas.
   const result: PainelML = { ...analysis, animal_id: animal, propriedade_id: property.id, inicio: start, fim: end,
     consultado_em: new Date().toISOString(), origem: source, referencial: process.env.ARGOS_REFERENCE_VERSION || 'development-unvalidated',

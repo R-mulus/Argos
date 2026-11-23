@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PainelAnaliseML } from "@/components/custom/PainelAnaliseML";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { useSearchParams } from "react-router";
@@ -115,7 +116,8 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
           aoAtualizar={atualizarTudo}
         />
 
-        <section aria-label="Análises de comportamento" className="mt-5 grid min-w-0 gap-5 lg:mt-[27px] xl:grid-cols-2 xl:gap-[27px]">
+        {!demonstracao && <PainelAnaliseML animal={posicaoDestaque?.animal_id} inicio={inicio?.toISOString() ?? null} fim={fimExclusivo?.toISOString() ?? null} periodo={periodo.periodo} />}
+        {demonstracao && <section aria-label="Análises de comportamento" className="mt-5 grid min-w-0 gap-5 lg:mt-[27px] xl:grid-cols-2 xl:gap-[27px]">
           <div className="relative min-w-0 [&>[data-slot=card]]:h-full">
             <AnaliseGeral />
             <SeloSimulado className="absolute right-4 bottom-4" descricao="Tamanho do grupo, coesão e comportamento dependem do futuro modelo de análise." />
@@ -124,7 +126,7 @@ export default function AnimaisZona({ demonstracao }: { demonstracao?: CenarioDe
             <DistribuicaoComportamento />
             <SeloSimulado className="absolute right-4 bottom-4" descricao="A distribuição de comportamento depende do futuro modelo de análise." />
           </div>
-        </section>
+        </section>}
 
         <section aria-label="Animal em destaque e animais sem detecção" className="mt-5 grid min-w-0 gap-5 lg:mt-[27px] xl:grid-cols-2 xl:gap-[27px]">
           <div className="min-w-0">
