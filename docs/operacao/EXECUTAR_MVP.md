@@ -1,16 +1,17 @@
 # Executar o MVP acadêmico — Windows PowerShell
 
-Entrega de 23/11/2026. Somente `backend-iot`; nenhuma migration operacional foi executada.
+Entrega de 23/11/2026 (Larápio), integrada à `dev` em 23/11. As migrations de proveniência, KPIs e modelos já estão
+aplicadas no Supabase. Roteiro resumido do dia: `docs/operacao/APRESENTACAO.md`.
 O frontend não participa da coleta, treino ou inferência. Não iniciar `backend/src/mqtt` nem `iot/`.
 
 ## Preparação e banco
 
-Em cada terminal, use o checkout desta entrega (ou outro checkout **já** na backend-iot):
+Em cada terminal, use o checkout da `dev` atualizada (ajuste `$Repo` para a pasta do seu computador):
 
 ```powershell
-$Repo = 'C:\Users\PICHAU\.codex\worktrees\argos-ml-sprint7\Argos'
+$Repo = (Resolve-Path .).Path   # raiz do repositório Argos
 Set-Location $Repo
-if ((git branch --show-current).Trim() -ne 'backend-iot') { throw 'Use backend-iot' }
+if ((git branch --show-current).Trim() -ne 'dev') { Write-Warning 'Fora da dev: confira se é a branch certa' }
 git status --short
 pnpm install --frozen-lockfile
 npm --prefix worker ci

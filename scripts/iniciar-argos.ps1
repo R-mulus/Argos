@@ -1,52 +1,76 @@
 ﻿<#
 .SYNOPSIS
-  Sobe o Argos no notebook gateway: EMQX, worker MQTT, API, frontend e worker Python, cada um numa janela.
+  Sobe o Argos para a apresentação, cada processo numa janela (roteiro: docs/operacao/APRESENTACAO.md).
 
 .DESCRIPTION
-  Ordem: broker primeiro, depois o worker MQTT (sessão persistente que guarda as leituras QoS 1),
-  depois API e telas. Fechar uma janela encerra só aquele processo. Para tudo: feche as janelas e,
-  se quiser parar o broker, docker stop argos-emqx.
+  Lado IoT (notebook com o broker provisionado e as placas gravadas):
+    1. EMQX de broker/ (usuários e ACL por dispositivo, Deny Action = disconnect)
+    2. worker/      ingestão MQTT -> fila SQLite -> Supabase (único ingestor; NÃO usar backend/src/mqtt)
+    3. ml/          trilateração + GRU acadêmica (único processador; NÃO usar iot/)
+  Lado da aplicação (qualquer notebook com internet):
+    4. API Express (backend/)
+    5. Telas (frontend/, Vite)
+
+  Por padrão sobe tudo. Use -SomenteIoT no notebook das placas e -SomenteApp no notebook da tela.
+  Fechar uma janela encerra só aquele processo. Nada aqui apaga filas, volumes ou dados.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\iniciar-argos.ps1
-  powershell -ExecutionPolicy Bypass -File scripts\iniciar-argos.ps1 -SemPython -SemFrontend
+  powershell -ExecutionPolicy Bypass -File scripts\iniciar-argos.ps1 -SomenteIoT
+  powershell -ExecutionPolicy Bypass -File scripts\iniciar-argos.ps1 -SomenteApp
 #>
-param([switch]$SemPython, [switch]$SemFrontend)
+param([switch]$SomenteIoT, [switch]$SomenteApp, [switch]$SemML)
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $PSScriptRoot
+if ($SomenteIoT -and $SomenteApp) { throw 'Use -SomenteIoT ou -SomenteApp, não os dois.' }
 
-function Abrir([string]$titulo, [string]$comando) {
-  $script = "`$Host.UI.RawUI.WindowTitle = '$titulo'; Set-Location '$raiz'; $comando"
+function Abrir([string]$titulo, [string]$pasta, [string]$comando) {
+  $script = "`$Host.UI.RawUI.WindowTitle = '$titulo'; Set-Location '$pasta'; $comando"
   Start-Process powershell -ArgumentList '-NoExit', '-NoProfile', '-Command', $script | Out-Null
   Write-Host "  janela aberta: $titulo"
 }
-
-Write-Host '== Broker EMQX' -ForegroundColor Cyan
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker não encontrado: abra o Docker Desktop.' }
-$ErrorActionPreference = 'Continue'
-$existe = docker ps -a --filter 'name=^argos-emqx$' --format '{{.Names}}' 2>$null
-if ($existe) { docker start argos-emqx | Out-Null } else { docker compose -f (Join-Path $raiz 'docker-compose.yml') up -d emqx }
-$ErrorActionPreference = 'Stop'
-$pronto = $false
-foreach ($i in 1..30) {
-  if (Test-NetConnection -ComputerName 127.0.0.1 -Port 1883 -InformationLevel Quiet -WarningAction SilentlyContinue) { $pronto = $true; break }
-  Start-Sleep -Seconds 2
+function Exigir([string]$caminho, [string]$dica) {
+  if (-not (Test-Path (Join-Path $raiz $caminho))) { throw "$caminho não encontrado. $dica" }
 }
-if (-not $pronto) { throw 'EMQX não abriu a porta 1883 em 60 s. Veja: docker logs argos-emqx' }
-Write-Host '  EMQX aceitando conexões na porta 1883'
 
-Write-Host '== Processos' -ForegroundColor Cyan
-if (-not (Test-Path (Join-Path $raiz 'backend\.env'))) { throw 'backend\.env não encontrado (veja backend/README.md).' }
-Abrir 'Argos - worker MQTT' 'pnpm --dir backend mqtt:worker'
-Start-Sleep -Seconds 3   # sessão do worker antes dos receptores despejarem a fila
-Abrir 'Argos - API' 'pnpm --dir backend dev'
-if (-not $SemFrontend) { Abrir 'Argos - frontend' 'pnpm --dir frontend dev' }
-if (-not $SemPython) {
-  if ((Test-Path (Join-Path $raiz 'iot\.venv\Scripts\python.exe')) -and (Test-Path (Join-Path $raiz 'iot\.env'))) {
-    Abrir 'Argos - worker Python' 'Set-Location iot; .\.venv\Scripts\python.exe -m argos_iot.worker'
-  } else {
-    Write-Host '  worker Python não configurado: rode scripts\configurar-worker-python.ps1 (o mapa fica sem posição)' -ForegroundColor Yellow
+if (-not $SomenteApp) {
+  Write-Host '== Lado IoT' -ForegroundColor Cyan
+  Exigir 'broker\.env' 'Provisione o broker (broker/README.md).'
+  Exigir 'broker\private\users.json' 'Provisione o broker (npm run provision em worker/).'
+  Exigir 'worker\.env' 'Copie worker/.env.example e preencha (chave secreta do Supabase).'
+  if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker não encontrado: abra o Docker Desktop.' }
+  $versaoNode = [int]((node -v) -replace '^v(\d+).*', '$1')
+  if ($versaoNode -lt 24) { throw "O worker exige Node 24 (node:sqlite); encontrado Node $versaoNode." }
+
+  $ErrorActionPreference = 'Continue'
+  docker compose --env-file (Join-Path $raiz 'broker\.env') -f (Join-Path $raiz 'broker\docker-compose.yml') up -d --wait
+  $codigo = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($codigo -ne 0) { throw 'EMQX não subiu. Veja: docker compose --env-file broker/.env -f broker/docker-compose.yml logs emqx' }
+  Write-Host '  EMQX pronto'
+
+  if (-not (Test-Path (Join-Path $raiz 'worker\dist\src\index.js'))) {
+    Push-Location (Join-Path $raiz 'worker'); try { npm run build } finally { Pop-Location }
+  }
+  Abrir 'Argos - worker (ingestão)' (Join-Path $raiz 'worker') 'npm start'
+  Start-Sleep -Seconds 3   # sessão MQTT durável antes dos receptores despejarem a fila
+
+  if (-not $SemML) {
+    Exigir 'ml\.env' 'Copie ml/.env.example e preencha (docs/operacao/EXECUTAR_MVP.md).'
+    Exigir 'ml\.venv\Scripts\python.exe' 'Crie a venv: py -3.12 -m venv ml/.venv; pip install -r ml/requirements-ml.txt'
+    Abrir 'Argos - ML (trilateração + GRU)' (Join-Path $raiz 'ml') '.\.venv\Scripts\python.exe -m argos_ml.cli worker'
   }
 }
-Write-Host "`nTelas: http://localhost:5173  |  Painel EMQX: http://localhost:18083"
+
+if (-not $SomenteIoT) {
+  Write-Host '== Lado da aplicação' -ForegroundColor Cyan
+  Exigir 'backend\.env' 'Copie backend/.env.example (URL e chave publishable; nunca a secreta).'
+  Exigir 'frontend\.env' 'Copie frontend/.env.example (URL e chave publishable do Supabase).'
+  Abrir 'Argos - API' $raiz 'pnpm --dir backend start'
+  Abrir 'Argos - telas' $raiz 'pnpm --dir frontend dev'
+}
+
+Write-Host "`nNão iniciar backend/src/mqtt (mqtt:worker) nem iot/: um ingestor e um processador por propriedade."
+if (-not $SomenteIoT) { Write-Host 'Telas: http://localhost:5173/Argos/' }
+if (-not $SomenteApp) { Write-Host 'Painel EMQX (só neste computador): http://localhost:18083' }
