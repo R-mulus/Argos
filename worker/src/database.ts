@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { PermanentError, log, type Detection, type DetectionRow, type Repository } from './types.js';
+import { PermanentError, log, type Detection, type DetectionRow, type Repository, type Notice } from './types.js';
 
 interface Device { id: string; propriedade_id: string; tipo: string; status: string }
 interface Link { id: string; inicio_em: string; fim_em: string | null }
@@ -40,6 +40,22 @@ export function mapDetection(event: Detection, tx: Device | undefined, rx: Devic
 }
 export class SupabaseRepository implements Repository {
   readonly client: SupabaseClient;
+  async notify(notice: Notice): Promise<void> {
+    // Mesmo contrato da central; não cria alerta para receptor de outra propriedade.
+    if (notice.dispositivo_id) {
+      const { data, error } = await this.client.from('dispositivos').select('id').eq('id', notice.dispositivo_id)
+        .eq('propriedade_id', notice.propriedade_id).eq('tipo','receptor').maybeSingle();
+      if (error) fail(error);
+      if (!data) return;
+    } else {
+      const { data, error } = await this.client.from('propriedades').select('id').eq('id',notice.propriedade_id).maybeSingle();
+      if (error) fail(error);
+      if (!data) return;
+    }
+    const { error } = await this.client.from('alertas').upsert(notice,
+      { onConflict:'propriedade_id,origem_evento',ignoreDuplicates:true });
+    if (error) fail(error);
+  }
   private devices: Cache<Device>;
   private links: Cache<{ id: string | null }>;
   private heartbeats = new Map<string, number>();

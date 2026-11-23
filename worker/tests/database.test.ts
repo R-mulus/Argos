@@ -32,3 +32,20 @@ test('falha HTTP de configuração não é tratada como dado descartável', asyn
     async () => Response.json({ code: 'PGRST301', message: 'jwt invalid' }, { status: 401 }));
   await assert.rejects(repository.prepare(event()), /supabase:PGRST301/);
 });
+
+test('avisos usam contrato da central e validam propriedade do receptor',async()=>{
+  const queries:URL[]=[];let allowed=false;let body:unknown;let preference='';
+  const repository=new SupabaseRepository('https://example.supabase.co','sb_secret_test',1000,0,async(input,init)=>{
+    const url=new URL(String(input));queries.push(url);
+    if(url.pathname.endsWith('dispositivos')) return Response.json(allowed?[{id:receivers[0]}]:[]);
+    body=JSON.parse(String(init?.body));preference=new Headers(init?.headers).get('prefer')??'';
+    return new Response(null,{status:201});
+  });
+  const notice={propriedade_id:property,dispositivo_id:receivers[0]!,origem_evento:'fixture-event',
+    tipo:'deteccao_rejeitada' as const,titulo:'Teste',descricao:'dispositivo_inativo',prioridade:'media' as const};
+  await repository.notify(notice);assert.equal(body,undefined);
+  assert.equal(queries[0]!.searchParams.get('propriedade_id'),'eq.'+property);
+  allowed=true;await repository.notify(notice);
+  assert.deepEqual(body,notice);assert.ok(preference.includes('resolution=ignore-duplicates'));
+  assert.equal(queries.at(-1)!.searchParams.get('on_conflict'),'propriedade_id,origem_evento');
+});
