@@ -5,7 +5,7 @@
 #else
 #include "ArgosSecrets.example.h"
 #endif
-#define ARGOS_WIFI_CHANNEL 2
+#define ARGOS_WIFI_CHANNEL 10
 #define ARGOS_NTP_SERVER "pool.ntp.org"
 // 1 somente para laboratório em LAN controlada; produção: 0 e porta 8883.
 #ifndef ARGOS_LOCAL_PLAINTEXT

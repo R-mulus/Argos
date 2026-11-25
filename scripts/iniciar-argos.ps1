@@ -66,7 +66,9 @@ if (-not $SomenteApp) {
 if (-not $SomenteIoT) {
   Write-Host '== Lado da aplicação' -ForegroundColor Cyan
   Exigir 'backend\.env' 'Copie backend/.env.example (URL e chave publishable; nunca a secreta).'
-  Exigir 'frontend\.env' 'Copie frontend/.env.example (URL e chave publishable do Supabase).'
+  if (-not ((Test-Path (Join-Path $raiz 'frontend\.env')) -or (Test-Path (Join-Path $raiz 'frontend\.env.local')))) {
+    throw 'frontend\.env (ou .env.local) não encontrado. Copie frontend/.env.example (URL e chave publishable).'
+  }
   Abrir 'Argos - API' $raiz 'pnpm --dir backend start'
   Abrir 'Argos - telas' $raiz 'pnpm --dir frontend dev'
 }
