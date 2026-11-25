@@ -1,0 +1,28 @@
+{
+  "gru": {
+    "mae_m": 2.0249951404654096,
+    "rmse_m": 2.603893446674241,
+    "erro_euclidiano_medio_m": 3.1824108066982113,
+    "erro_mediano_m": 2.8709008263794664,
+    "erro_p95_m": 6.628494629405282
+  },
+  "persistencia": {
+    "mae_m": 3.249692846688221,
+    "rmse_m": 4.195502514517613,
+    "erro_euclidiano_medio_m": 5.11455152835359,
+    "erro_mediano_m": 4.816742611041911,
+    "erro_p95_m": 10.301590463193394
+  },
+  "velocidade_constante": {
+    "mae_m": 4.92816406032438,
+    "rmse_m": 6.777949924811519,
+    "erro_euclidiano_medio_m": 7.840637614214474,
+    "erro_mediano_m": 6.536842245105941,
+    "erro_p95_m": 18.36242898490703
+  },
+  "inferencia_media_ms": 14.95139200007543,
+  "inferencias": 50,
+  "origem": "synthetic",
+  "amostras": 7763,
+  "supera_persistencia": true
+}

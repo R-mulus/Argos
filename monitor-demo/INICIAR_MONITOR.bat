@@ -3,7 +3,7 @@ chcp 65001 > nul
 cd /d "%~dp0"
 echo.
 echo =====================================================
-echo       ARGOS - MONITOR AO VIVO - VERSAO 1.1
+echo       ARGOS - MONITOR REAL E GRU SYNTHETIC - VERSAO 2.0
 echo =====================================================
 echo.
 if not exist "..\ml\.venv\Scripts\python.exe" (

@@ -41,13 +41,17 @@ def main():
     report.add_argument('--since',required=True); report.add_argument('--until',required=True)
     backfill = sub.add_parser('requeue')
     backfill.add_argument('--since',required=True); backfill.add_argument('--until',required=True)
+    from .demo_v2 import configure_parser, run as run_demo_v2
+    configure_parser(sub.add_parser('demo-v2', help='Dataset, treino e inferência GRU v2 sintética'))
     args = p.parse_args()
     load_dotenv(args.env)
     if args.command=='worker' and args.min_receivers is not None:
         if not args.once or args.min_receivers < 3 or os.getenv('ARGOS_WRITE_ENABLED','0')=='1':
             p.error('--min-receivers exige --once, N>=3 e ARGOS_WRITE_ENABLED=0')
     logging.basicConfig(level=logging.INFO,format='%(levelname)s %(message)s')
-    if args.command=='worker':
+    if args.command=='demo-v2':
+        run_demo_v2(args)
+    elif args.command=='worker':
         from .worker import run
         run(args.once, args.min_receivers)
     elif args.command=='train':

@@ -1,0 +1,32 @@
+[
+  {
+    "receptor_id": "45bd6322-d705-4ea4-8bb2-cab702a1c094",
+    "propriedade_id": "8da8c584-e51b-4b99-808d-8cf55cee7674",
+    "x_m": 6.73,
+    "y_m": -6.5,
+    "rssi_1m_dbm": -50,
+    "expoente_perda": 2.6,
+    "atualizado_em": "2026-11-23T23:48:26.144+00:00",
+    "codigo": "RX-002"
+  },
+  {
+    "receptor_id": "83bba45a-c012-49f3-8db0-9fdd904d6128",
+    "propriedade_id": "8da8c584-e51b-4b99-808d-8cf55cee7674",
+    "x_m": 5,
+    "y_m": 10,
+    "rssi_1m_dbm": -50,
+    "expoente_perda": 2.6,
+    "atualizado_em": "2026-11-16T14:34:35.049085+00:00",
+    "codigo": "RX-003"
+  },
+  {
+    "receptor_id": "9b3cc23c-7c82-4105-96ad-9e6ee7d7c607",
+    "propriedade_id": "8da8c584-e51b-4b99-808d-8cf55cee7674",
+    "x_m": -9.27,
+    "y_m": 0.03,
+    "rssi_1m_dbm": -50,
+    "expoente_perda": 2.6,
+    "atualizado_em": "2026-11-23T23:48:26.624+00:00",
+    "codigo": "RX-001"
+  }
+]

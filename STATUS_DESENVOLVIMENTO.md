@@ -1,3 +1,18 @@
+# Atualização 25/11/2026 — GRU v2 consolidada em ml/ (local, dev)
+
+- Os 12 artefatos da v2 foram movidos de `model/` na raiz para
+  `ml/model/artifacts/posicao-demo-v2/`. Hashes, pesos e métricas preservados;
+  diretórios antigos vazios removidos, sem alteração na v1.
+- CLI principal integrado: `python -m argos_ml.cli demo-v2` com generate, populate,
+  train, evaluate, infer e clean. Script PowerShell e Monitor Demo usam a nova estrutura.
+- Documentação em `ml/docs/GRU_V2.md`, referência em `ml/README.md` e guia operacional
+  atualizado. `.gitignore` permite versionar a v2 e continua ignorando modelos legados.
+- Verificado: suíte de 68 testes Python; quatro testes da v2 (incluindo novo teste
+  do CLI); inferência pelo CLI e script PowerShell; hashes dos artefatos; Chromium
+  desktop/mobile com replay, atualização, ordem, RSSI e reconexão sem erros JavaScript.
+- Sem novas dependências, alteração no banco, commit, push, PR ou merge nesta integração.
+  Modelo continua synthetic; ensaio físico/Docker permanece pendente conforme registro anterior.
+
 > **Integração IoT — 16/11/2026, branch `backend-iot` (base dev `8b241f5`):** adicionados firmware genérico Arduino para transmissor/receptor ESP-NOW → MQTT v1 QoS1, fila LittleFS, cabeçalho de identidade, processamento Python de trilateração derivado do MVP, treinamento/inferência GRU com posição atual/futura e comportamento, jobs SQL duráveis e endpoints autenticados `/api/iot/localizacoes`, `/api/iot/predicoes`, `/api/iot/receptores/coordenadas` (GET/PUT). Tipos em `shared/index.ts`. Sem horário, ingestão não atribui vínculo/zona atuais. Migração aditiva preparada, não aplicada ao Supabase real. Frontend preservado; integração de novos componentes fica com o backend/frontend responsável. Documentação em `iot/README.md`, `firmware/README.md` e `docs/iot/`. **Verificado:** 25 testes backend, typecheck, build/lint frontend, 10 testes Python incluindo PostgreSQL 17/RLS, smoke test TensorFlow 2.21 e compilação C3/S3/ESP32+OLED (core 3.0.7). **Pendente:** hardware físico, campo, modelo com dados reais e configuração operacional. Captura offline usa filas; coordenadas/GRU aguardam sincronização PostgreSQL. Ver `docs/iot/VALIDACAO.md`.
 
 # STATUS_DESENVOLVIMENTO.md — Argos
@@ -275,4 +290,30 @@ Ao integrar uma funcionalidade, faça as quatro ações:
 > Lint, build, `node verificar-inicio.mjs` (5 cenários, agora também conferindo títulos, ausência de temperatura e de m/h e links da prévia) e prévias em 1440 e 390 px aprovados. **Pendentes:**
 > - as métricas de liderança, tempo em movimento e distância do Animal em Destaque continuam simuladas, com selo;
 > - a movimentação depende de uma métrica definida a partir das trocas de zona registradas.
+
+# Atualização 25/11/2026 — Monitor Demo e GRU v2 (local, dev)
+
+- Monitor independente: CSS/JS separados, Lucide/Outfit locais, modos ESP32 e replay
+  `synthetic`, diagnóstico de eventos/idade/fila/calibração, consulta agregada por RPC,
+  polling de 1 s sem concorrência, timeout/reconexão e proteção contra regressões/saltos.
+- Causa observada: hash local incompatível com coordenadas alteradas, 91 jobs pendentes
+  antigos e ausência de posições novas. Usuário confirmou coordenadas atuais; `.env`
+  local alinhado, sem publicar segredos. Worker preserva eventos anteriores à geometria.
+- 60.000 medições sintéticas em tabelas isoladas, execução
+  `81d6ddb5-7be2-4b4f-9b29-6a6dee019798`; migration `20261125140317` aplicada.
+  Contagens operacionais preservadas: 2.556 detecções, 746 posições, 969 jobs.
+  Worker executado em dois ciclos classificou os 91 pendentes como receptores insuficientes.
+- GRU v2 treinada (4.306 parâmetros, 35 épocas), 7.763 janelas de teste: RMSE 2,604 m
+  versus persistência 4,196 m e velocidade constante 6,778 m. Origem exclusivamente
+  sintética, sem aprovação operacional. V1 não alterada. Artefatos em
+  `ml/model/artifacts/posicao-demo-v2/`; inferência recarregada e avaliação reproduzidas.
+- Verificado: 68 testes Python, frontend build e lint; Chromium 1440/390 px, replay,
+  ordem de eventos, ponto constante, RSSI individual, falha/reconexão e ausência de dados.
+  Latência com fonte controlada: 1,00–1,98 s; consulta real Supabase: 281–781 ms, incluindo início.
+  Teste SQL transacional de origem, FK por propriedade, privilégios e limpeza passou (rollback).
+- **Pendente:** ensaio físico completo; Docker Desktop retorna `unable to start` e
+  não há novas medições das placas. Não declarar latência física como validada.
+- Guia: `monitor-demo/OPERACAO_V2.md`; script Windows: `scripts/monitor-demo.ps1`.
+  Alterações de arquivos somente locais, sem commit/push/PR/merge; banco remoto alterado
+  apenas pela migration/carga isolada e processamento autorizado dos jobs pendentes.
 

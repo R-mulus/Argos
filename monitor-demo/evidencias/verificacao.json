@@ -1,0 +1,13 @@
+{
+  "real_api": "Servidor conectado · consulta 766 ms · sequência 1 · TX sem medição recente · recebido: 3fa85f64-5717-4562-b3fc-2c963f66afa6:8fab9660a4b25936:1 · localizado/exibido: nenhum · fila pendente: 0 · medição → cálculo: indisponível · cálculo → exibição agora: indisponível · Telemetria sem posição correspondente; confira fila e receptores.",
+  "replay_e_mobile": "aprovados",
+  "latencia_local_fixture_ms": [
+    1001.1660000309348,
+    999.8218999826349,
+    1000.2581999870017,
+    999.9705000082031,
+    1000.0866000191309
+  ],
+  "falhas_ordem_reconexao_rssi": "aprovados",
+  "erros_javascript": []
+}

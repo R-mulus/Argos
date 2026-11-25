@@ -1,0 +1,11 @@
+{
+  "model_version": "posicao-demo-v2",
+  "origem": "synthetic",
+  "approved": false,
+  "operational": false,
+  "dataset_sha256": "5ad3e70ab9442523046bd7f2e3f6767bffeaf6e34f007b2225c31314b748ef41",
+  "execucao_id": "81d6ddb5-7be2-4b4f-9b29-6a6dee019798",
+  "train_seconds": 20.83431899995776,
+  "architecture": "GRU(32), Dropout(0.1), Dense(16,relu), Dense(2)",
+  "parameters": 4306
+}

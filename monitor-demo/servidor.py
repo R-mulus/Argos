@@ -7,6 +7,8 @@ Faz as consultas em uma thread para a pagina nunca ficar presa num GET lento.
 from __future__ import annotations
 
 import json
+import math
+import hashlib
 import os
 import re
 import sys
@@ -39,7 +41,7 @@ PROPERTY_ID = os.getenv("ARGOS_PROPERTY_ID", "").strip()
 PREFERRED_TX = os.getenv("ARGOS_MONITOR_TX_ID", "").strip()
 REFERENCE_VERSION = os.getenv("ARGOS_REFERENCE_VERSION", "").strip()
 CALIBRATION_HASH = os.getenv("ARGOS_CALIBRATION_SHA256", "").strip()
-REFRESH_SECONDS = 3.0
+REFRESH_SECONDS = 1.0
 
 
 def check_config():
@@ -134,122 +136,77 @@ def latest_per_receiver(records):
     return latest
 
 
+def stamp(value):
+    try:
+        d = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return d.timestamp() if d.tzinfo else float("-inf")
+    except (ValueError, TypeError, AttributeError):
+        return float("-inf")
+
+
+def valid_positions(rows, previous=None):
+    """Não retrocede nem desloca para salto isolado; não inventa coordenadas."""
+    accepted, rejected, seen = [], [], set()
+    last = previous
+    pending = None
+    for p in sorted(rows, key=lambda r: (stamp(r.get('observado_em')), stamp(r.get('calculado_em')))):
+        event = p.get('evento_id')
+        when = stamp(p.get('observado_em'))
+        if (not event or event in seen or not math.isfinite(when)
+                or when > time.time()+5 or any(not isinstance(p.get(k), (float,int))
+                or not math.isfinite(p[k]) for k in ('x_m','y_m'))
+                or not isinstance(p.get('receptores_utilizados'),int) or p['receptores_utilizados'] < 3
+                or not isinstance(p.get('erro_residual_m'),(float,int))
+                or not math.isfinite(p['erro_residual_m']) or p['erro_residual_m'] < 0):
+            rejected.append({'evento_id':event,'motivo':'invalido_ou_duplicado'})
+            continue
+        seen.add(event)
+        if last:
+            delta = when-stamp(last.get('observado_em'))
+            if delta <= 0:
+                continue
+            if math.hypot(p['x_m']-last['x_m'], p['y_m']-last['y_m']) > 4*delta+20:
+                if pending and math.hypot(p['x_m']-pending['x_m'],p['y_m']-pending['y_m']) <= 4*(when-stamp(pending['observado_em']))+20:
+                    accepted.extend([pending,p])
+                    last = p
+                    pending = None
+                    continue
+                rejected.append({'evento_id':event,'motivo':'salto_aguardando_confirmacao'})
+                pending = p
+                continue
+        accepted.append(p)
+        last = p
+        pending = None
+    return accepted, rejected
+
+
 def build_snapshot(db):
-    devices = db.rows(
-        "dispositivos", select="id,codigo,nome,tipo,status", order="codigo.asc", limit="80"
-    )
-    devices_by_id = {d["id"]: d for d in devices}
-    anchor_rows = db.rows(
-        "argos_posicoes_receptores",
-        select="receptor_id,x_m,y_m,rssi_1m_dbm,expoente_perda,atualizado_em",
-        order="receptor_id.asc", limit="20"
-    )
-
-    position_filter = dict(
-        select="transmissor_id,animal_id,evento_id,x_m,y_m,erro_residual_m,receptores_utilizados,observado_em,calculado_em,origem,referencial_versao",
-        origem="eq.experimental",
-        observado_em="not.is.null",
-        order="observado_em.desc",
-        limit="1",
-    )
-    if PREFERRED_TX:
-        position_filter["transmissor_id"] = "eq." + PREFERRED_TX
-    if REFERENCE_VERSION:
-        position_filter["referencial_versao"] = "eq." + REFERENCE_VERSION
-    if CALIBRATION_HASH:
-        position_filter["calibracao_sha256"] = "eq." + CALIBRATION_HASH
-    head = db.rows("argos_localizacoes", **position_filter)
-    top = head[0] if head else None
-    tx_id = PREFERRED_TX or (top.get("transmissor_id") if top else None)
-
-    if not tx_id:
-        recent = db.rows(
-            "deteccoes", select="transmissor_id,evento_id,recebido_em",
-            order="recebido_em.desc", limit="1"
-        )
-        tx_id = recent[0].get("transmissor_id") if recent else None
-
-    trail = []
-    last_ingest = None
-    latest_event_id = None
-    readings = {}
-    if tx_id:
-        trail_filters = {
-            "transmissor_id": "eq." + tx_id,
-            "origem": "eq.experimental",
-            "observado_em": "not.is.null",
-            "order": "observado_em.desc",
-            "limit": "90",
-        }
-        if REFERENCE_VERSION:
-            trail_filters["referencial_versao"] = "eq." + REFERENCE_VERSION
-        if CALIBRATION_HASH:
-            trail_filters["calibracao_sha256"] = "eq." + CALIBRATION_HASH
-        trail_desc = db.rows(
-            "argos_localizacoes",
-            select="evento_id,animal_id,x_m,y_m,erro_residual_m,receptores_utilizados,observado_em,calculado_em,referencial_versao",
-            **trail_filters,
-        )
-        trail = list(reversed(trail_desc))
-        if not top and trail_desc:
-            top = trail_desc[0]
-        ingest = db.rows(
-            "deteccoes", select="evento_id,recebido_em",
-            transmissor_id="eq." + tx_id,
-            order="recebido_em.desc", limit="1"
-        )
-        if ingest:
-            last_ingest = ingest[0].get("recebido_em")
-            latest_event_id = ingest[0].get("evento_id")
-            if latest_event_id:
-                matching = db.rows(
-                    "deteccoes",
-                    select="receptor_id,rssi_dbm,detectado_em,recebido_em,evento_id",
-                    transmissor_id="eq." + tx_id,
-                    evento_id="eq." + latest_event_id,
-                    order="recebido_em.desc", limit="20",
-                )
-                readings = latest_per_receiver(matching)
-
-    anchors = []
-    for i, r in enumerate(sorted(anchor_rows, key=lambda x: (float(x["x_m"]), float(x["y_m"])))):
-        did = r["receptor_id"]
-        d = devices_by_id.get(did, {})
-        measurement = readings.get(did, {})
-        anchors.append({
-            "id": did,
-            "codigo": d.get("codigo") or "RX-" + str(i + 1).zfill(3),
-            "nome": d.get("nome") or "Receptor",
-            "x_m": r.get("x_m"),
-            "y_m": r.get("y_m"),
-            "rssi_1m_dbm": r.get("rssi_1m_dbm"),
-            "expoente_perda": r.get("expoente_perda"),
-            "rssi_dbm": measurement.get("rssi_dbm"),
-            "medido_em": measurement.get("detectado_em"),
-            "recebido_em": measurement.get("recebido_em"),
-        })
-    anchors.sort(key=lambda r: r["codigo"])
-
-    tx = devices_by_id.get(tx_id, {}) if tx_id else {}
-    property_names = db.rows("propriedades", select="id,nome", limit="1")
-    return {
-        "server_time": utc_now(),
-        "propriedade": property_names[0]["nome"] if property_names else "Propriedade",
-        "transmissor": {
-            "id": tx_id,
-            "codigo": tx.get("codigo") or "TX",
-            "nome": tx.get("nome") or "Transmissor",
-        },
-        "posicao": top,
-        "trilha": trail,
-        "receptores": anchors,
-        "ultimo_pacote_em": last_ingest,
-        "evento_rssi": latest_event_id,
-        "evento_posicao": top.get("evento_id") if top else None,
-        "dados_evento": len(readings),
-        "observacao": "Posicao experimental RSSI; nao e GPS nem geolocalizacao certificada.",
-        "somente_leitura": True,
-    }
+    db.progress and db.progress('Consultando snapshot e fila')
+    try:
+        response = db.session.post(URL + '/rest/v1/rpc/argos_monitor_snapshot', json={
+            'p_propriedade':PROPERTY_ID, 'p_transmissor':PREFERRED_TX or None,
+            'p_referencia':REFERENCE_VERSION or None, 'p_calibracao':CALIBRATION_HASH or None,
+        }, timeout=(2.5,5))
+        response.raise_for_status()
+        result = response.json()
+        if not isinstance(result,dict):
+            raise ValueError('snapshot_invalido')
+    except requests.RequestException:
+        raise RuntimeError('Consulta indisponível; reconexão automática. Confira rede e migration argos_demo_v2.') from None
+    trail, rejected = valid_positions(result.get('trilha',[]))
+    result['trilha'], result['rejeitados'] = trail, rejected
+    result['posicao'] = trail[-1] if trail else None
+    result['evento_posicao'] = result['posicao']['evento_id'] if trail else None
+    coords = [{k:r[k] for k in ('receptor_id','propriedade_id','x_m','y_m','rssi_1m_dbm','expoente_perda')}
+              for r in result.get('receptores',[])]
+    actual = hashlib.sha256(json.dumps(sorted(coords,key=lambda r:r['receptor_id']),sort_keys=True,
+        separators=(',',':'),allow_nan=False).encode()).hexdigest()
+    result['calibracao_compativel'] = not CALIBRATION_HASH or actual == CALIBRATION_HASH
+    result['dados_evento'] = sum(r.get('evento_id') == result.get('evento_rssi') for r in result.get('receptores',[]))
+    measured = [r.get('medido_em') for r in result.get('receptores',[]) if math.isfinite(stamp(r.get('medido_em')))]
+    if measured:
+        result['ultima_medicao_em'] = max(measured,key=stamp)
+    return result
 
 
 class LiveStore:
@@ -265,6 +222,7 @@ class LiveStore:
         self.started = 0.0
         self.completed = 0.0
         self.successful_at = None
+        self.sequence = 0
 
     def set_phase(self, phase):
         with self.lock:
@@ -295,7 +253,19 @@ class LiveStore:
             db.close()
             with self.lock:
                 if snapshot is not None:
+                    old = self.snapshot.get('posicao') if self.snapshot else None
+                    if old and snapshot.get('transmissor') == self.snapshot.get('transmissor'):
+                        fresh, rejected = valid_positions(snapshot['trilha'], old)
+                        snapshot['posicao'] = fresh[-1] if fresh else old
+                        snapshot['trilha'] = (self.snapshot.get('trilha',[]) + fresh)[-90:]
+                        snapshot['rejeitados'].extend(rejected)
+                    self.sequence += 1
+                    snapshot['sequencia'] = self.sequence
+                    snapshot['consulta_ms'] = round((time.monotonic()-self.started)*1000,2)
+                    snapshot['evento_posicao'] = (snapshot.get('posicao') or {}).get('evento_id')
                     self.snapshot = snapshot
+                    print('[monitor] ' + json.dumps({k:snapshot.get(k) for k in
+                        ('sequencia','evento_rssi','evento_posicao','consulta_ms','fila','calibracao_compativel')},ensure_ascii=False))
                     self.successful_at = utc_now()
                 self.error = error
                 self.completed = time.monotonic()
@@ -309,6 +279,7 @@ class LiveStore:
                 result = dict(self.snapshot)
                 result.update({
                     "estado": "ok" if self.error is None else "desatualizado",
+                    "server_time": utc_now(),
                     "erro_atualizacao": self.error,
                     "atualizando": self.refreshing,
                     "ultima_sincronizacao": self.successful_at,
@@ -346,7 +317,7 @@ STORE = LiveStore(check_config())
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ArgosMonitor/1.1"
+    server_version = "ArgosMonitor/2.0"
     sys_version = ""
 
     def log_message(self, fmt, *args):
@@ -377,6 +348,22 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path in ("/", "/index.html"):
             self.respond(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
+        elif path in ('/monitor.js','/monitor.css','/lucide.js','/outfit.woff2'):
+            mime = 'text/javascript' if path.endswith('.js') else 'text/css' if path.endswith('.css') else 'font/woff2'
+            self.respond(200, (HERE / path[1:]).read_bytes(), mime)
+        elif path == '/api/demo':
+            artifact = ROOT / 'ml/model/artifacts/posicao-demo-v2/replay.json'
+            if artifact.is_file():
+                try:
+                    body = artifact.read_bytes()
+                    hashes = json.loads((artifact.parent/'hashes.json').read_text())
+                    if hashlib.sha256(body).hexdigest() != hashes['replay.json']:
+                        raise ValueError('integridade')
+                    self.respond(200, body, 'application/json')
+                except (ValueError,KeyError,OSError):
+                    self.json_response(503, {'erro':'Replay sem integridade válida. Execute evaluate novamente.'})
+            else:
+                self.json_response(503, {'erro':'Treine a GRU v2 e execute evaluate para preparar o replay.'})
         elif path == "/api/live":
             status, result = STORE.payload()
             self.json_response(status, result)
@@ -389,7 +376,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     error = check_config()
     print("\n" + "=" * 58)
-    print(" ARGOS | MONITOR DE LOCALIZACAO AO VIVO | v1.1")
+    print(" ARGOS | MONITOR REAL E GRU SYNTHETIC | v2.0")
     print("=" * 58)
     print(" Fonte: Supabase REST (somente leitura)")
     print(" Configuracao encontrada: " + ("SIM" if ENV_FILE.is_file() else "NAO"))

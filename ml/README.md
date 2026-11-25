@@ -21,6 +21,16 @@ Subsistema independente da ingestão MQTT. Não altera ESP32, EMQX ou worker Nod
 Trabalha em `backend-iot`; contratos de `origin/dev` foram consultados, não modificados.
 Veja [auditoria](docs/AUDITORIA.md) e [integração](docs/INTEGRACAO.md).
 
+
+## GRU v2 sintética integrada
+
+O código da v2 está em `argos_ml/demo_v2.py`, seus dados em `data/demo-v2.json`
+e os artefatos em `model/artifacts/posicao-demo-v2/`, todos dentro de `ml/`.
+O CLI principal fornece `demo-v2` e o script `scripts/monitor-demo.ps1` usa esse CLI.
+Consulte [o guia da GRU v2](docs/GRU_V2.md) e
+[o roteiro do Monitor Demo](../monitor-demo/OPERACAO_V2.md).
+A v2 permanece sintética e não substitui o modelo operacional nem sua aprovação.
+
 ## Instalação no Windows
 
 Na raiz do repositório, use Python **3.12 de 64 bits**. O Python 3.14 instalado nesta máquina não foi usado para TensorFlow.

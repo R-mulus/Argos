@@ -58,9 +58,15 @@ worker/data/
 *.sqlite
 *.sqlite-*
 ml/data/
-ml/model/artifacts/
+ml/model/artifacts/*
+!ml/model/artifacts/posicao-demo-v2/
 ml/test-artifacts/
 ml/.pytest-tmp/
+/.pytest-tmp/
+/data/
+# Artefato sintético solicitado, separado da GRU v1.
+!/ml/model/artifacts/posicao-demo-v2/model.keras
+monitor-demo/evidencias/*.png
 # Pacotes compactados trocados entre a equipe podem conter credenciais
 *.rar
 *.zip

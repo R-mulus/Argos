@@ -59,6 +59,14 @@ def process_job(db, job, write=False, predictors=(), outbox=None, coordinates=No
         coordinates = db.rows('argos_posicoes_receptores',order='receptor_id')
     if links is None:
         links = db.rows('vinculos',transmissor_id='eq.'+tx)
+    # Não reinterpretar pacotes antigos com receptores que mudaram de lugar.
+    from .localization import timestamp
+    geometry_dates = [timestamp(c['atualizado_em']) for c in coordinates if c.get('atualizado_em')]
+    captured = [timestamp(r.get('detectado_em')) for r in rows]
+    if geometry_dates and captured and all(captured) and min(captured) < max(geometry_dates):
+        if write:
+            db.finish_job(job, {'estado':'referencial_posterior_a_medicao'})
+        return 'referencial_posterior_a_medicao'
     try:
         position = localize(rows,coordinates,links)
     except InvalidEvent as error:
